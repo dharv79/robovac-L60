@@ -1,13 +1,13 @@
 {
     "domain": "robovac",
-    "name": "Eufy Robovac",
-    "codeowners": ["@codefoodpixels"],
+    "name": "Eufy Robovac L60",
+    "codeowners": ["@harv79"],
     "config_flow": true,
     "dependencies": [],
-    "documentation": "https://github.com/codefoodpixels/robovac",
+    "documentation": "https://github.com/dharv79/robovac-L60",
     "integration_type": "device",
     "iot_class": "local_polling",
-    "issue_tracker": "https://github.com/codefoodpixels/robovac/issues",
+    "issue_tracker": "https://github.com/dharv79/robovac-L60/issues",
     "requirements": [],
-    "version": "1.0.0"
+    "version": "2.0.0"
 }

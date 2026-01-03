@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-"""The Eufy Robovac integration."""
+"""The Eufy Robovac L60 integration."""
 from __future__ import annotations
 import logging
 
@@ -67,7 +67,7 @@ async def async_setup(hass, entry) -> bool:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up Eufy Robovac from a config entry."""
+    """Set up Eufy Robovac L60 from a config entry."""
     entry.async_on_unload(entry.add_update_listener(update_listener))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

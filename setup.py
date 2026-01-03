@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright 2022 Brendan McCluskey
+# Copyright (c) 2025 Dave Harvey
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,12 +26,12 @@ dynamic_requires = []
 
 setup(
     name="robovac",
-    version="1.0",
-    author="Luke Morrigan",
-    url="http://github.com/codefoodpixels/robovac",
+    version="2.0.0",
+    author="TheHarvs",
+    url="https://github.com/dharv79/robovac-L60",
     packages=find_packages(),
     scripts=[],
-    description="Python API for controlling Eufy Robovac vacuum cleaners",
+    description="Python API for controlling Eufy Robovac L60 vacuum cleaners",
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",

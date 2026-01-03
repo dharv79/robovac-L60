@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Config flow for Eufy Robovac integration."""
+"""Config flow for Eufy Robovac L60 integration."""
 from __future__ import annotations
 import json
 
@@ -170,7 +170,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for Eufy Robovac."""
+    """Handle a config flow for Eufy Robovac L60."""
 
     data: Optional[dict[str, Any]]
 

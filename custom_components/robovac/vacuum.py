@@ -26,7 +26,11 @@ import time
 from datetime import timedelta
 from typing import Any
 
-from homeassistant.components.vacuum import StateVacuumEntity, VacuumActivity
+from homeassistant.components.vacuum import (
+    StateVacuumEntity,
+    VacuumActivity,
+    VacuumEntityFeature,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     CONF_ACCESS_TOKEN,
@@ -189,7 +193,6 @@ class RoboVacEntity(StateVacuumEntity):
             self.vacuum = None
 
         if self.error_code != "UNSUPPORTED_MODEL" and self.vacuum is not None:
-            self._attr_supported_features = self.vacuum.getHomeAssistantFeatures()
             self._attr_robovac_supported = self.vacuum.getRoboVacFeatures()
 
             fan_speeds = self.vacuum.getFanSpeeds()
@@ -199,8 +202,9 @@ class RoboVacEntity(StateVacuumEntity):
             self._attr_fan_speed_list = list(self.fan_speed_map.keys())
 
             self._tuya_command_codes = self.vacuum.getCommandCodes()
+            self._attr_supported_features = self._build_supported_features()
         else:
-            self._attr_supported_features = 0
+            self._attr_supported_features = VacuumEntityFeature.STATE
             self._attr_robovac_supported = 0
             self.fan_speed_map = {}
             self._attr_fan_speed_list = []
@@ -213,6 +217,32 @@ class RoboVacEntity(StateVacuumEntity):
             model=item[CONF_DESCRIPTION],
             connections=[(CONNECTION_NETWORK_MAC, item[CONF_MAC])],
         )
+
+    def _build_supported_features(self) -> VacuumEntityFeature:
+        """Build modern HA vacuum supported features without deprecated battery support."""
+        features = VacuumEntityFeature.STATE
+
+        if self.vacuum is None:
+            return features
+
+        supported_commands = set(self.vacuum.getSupportedCommands())
+
+        # Core supported actions in this entity implementation
+        features |= VacuumEntityFeature.START
+        features |= VacuumEntityFeature.RETURN_HOME
+        features |= VacuumEntityFeature.SEND_COMMAND
+
+        if RobovacCommand.FAN_SPEED in supported_commands:
+            features |= VacuumEntityFeature.FAN_SPEED
+
+        if RobovacCommand.LOCATE in supported_commands:
+            features |= VacuumEntityFeature.LOCATE
+
+        if RobovacCommand.MODE in supported_commands:
+            features |= VacuumEntityFeature.PAUSE
+            features |= VacuumEntityFeature.CLEAN_SPOT
+
+        return features
 
     @property
     def robovac_supported(self) -> Any:

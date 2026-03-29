@@ -1,5 +1,5 @@
 # Copyright 2022 Brendan McCluskey
-# Copyright (c) 2025 Dave Harvey
+# Copyright (c) 2026 Dave Harvey
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@ from datetime import timedelta
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE, EntityCategory, CONF_NAME, CONF_ID
+from homeassistant.const import CONF_ID, CONF_NAME, PERCENTAGE, EntityCategory
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import CONF_VACS, DOMAIN, REFRESH_RATE
 
@@ -37,17 +37,14 @@ async def async_setup_entry(
 ) -> None:
     """Set up battery sensors for each vacuum."""
     vacuums = config_entry.data[CONF_VACS]
-
-    entities: list[RobovacBatterySensor] = []
-    for key in vacuums:
-        item = vacuums[key]
-        entities.append(RobovacBatterySensor(item))
-
+    entities: list[RobovacBatterySensor] = [
+        RobovacBatterySensor(item) for item in vacuums.values()
+    ]
     async_add_entities(entities)
 
 
 class RobovacBatterySensor(SensorEntity):
-    """Battery % for a Robovac, linked to the same device as the vacuum entity."""
+    """Battery % for a Robovac."""
 
     _attr_has_entity_name = True
     _attr_name = "Battery"
@@ -57,26 +54,22 @@ class RobovacBatterySensor(SensorEntity):
 
     def __init__(self, item: dict) -> None:
         self.robovac_id = item[CONF_ID]
-
-        # IMPORTANT: do NOT reuse the vacuum unique_id
         self._attr_unique_id = f"{item[CONF_ID]}_battery"
-
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, item[CONF_ID])},
             name=item[CONF_NAME],
         )
-
         self._battery_level: int | None = None
+        self._attr_available = False
 
-    def update(self) -> None:
+    async def async_update(self) -> None:
         """Poll battery from the vacuum entity cache."""
         try:
             vac_entity = self.hass.data[DOMAIN][CONF_VACS][self.robovac_id]
-            # Read an internal cache set by vacuum.py
             self._battery_level = getattr(vac_entity, "_battery_level_cache", None)
             self._attr_available = self._battery_level is not None
-        except Exception:
-            _LOGGER.debug("Failed to get battery level for %s", self.robovac_id)
+        except Exception as err:
+            _LOGGER.debug("Failed to get battery level for %s: %s", self.robovac_id, err)
             self._battery_level = None
             self._attr_available = False
 

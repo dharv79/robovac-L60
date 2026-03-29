@@ -15,6 +15,7 @@
 
 import logging
 from datetime import timedelta
+from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
@@ -52,26 +53,42 @@ class RobovacBatterySensor(SensorEntity):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_native_unit_of_measurement = PERCENTAGE
 
-    def __init__(self, item: dict) -> None:
+    def __init__(self, item: dict[str, Any]) -> None:
         self.robovac_id = item[CONF_ID]
         self._attr_unique_id = f"{item[CONF_ID]}_battery"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, item[CONF_ID])},
             name=item[CONF_NAME],
         )
+
         self._battery_level: int | None = None
-        self._attr_available = False
+        self._attr_available = True
+
+    async def async_added_to_hass(self) -> None:
+        """Initialise sensor state on add."""
+        await self.async_update()
 
     async def async_update(self) -> None:
         """Poll battery from the vacuum entity cache."""
         try:
             vac_entity = self.hass.data[DOMAIN][CONF_VACS][self.robovac_id]
-            self._battery_level = getattr(vac_entity, "_battery_level_cache", None)
-            self._attr_available = self._battery_level is not None
+            latest_battery = getattr(vac_entity, "_battery_level_cache", None)
+
+            # Only replace cached value when the vacuum has a real reading.
+            if latest_battery is not None:
+                self._battery_level = latest_battery
+
+            # Keep sensor available after reboot even if first poll has not landed yet.
+            self._attr_available = True
+
         except Exception as err:
-            _LOGGER.debug("Failed to get battery level for %s: %s", self.robovac_id, err)
-            self._battery_level = None
-            self._attr_available = False
+            _LOGGER.debug(
+                "Failed to get battery level for %s: %s",
+                self.robovac_id,
+                err,
+            )
+            # Keep last known value and stay available rather than flapping unavailable.
+            self._attr_available = True
 
     @property
     def native_value(self) -> int | None:

@@ -55,7 +55,7 @@ from .vacuums.base import RoboVacEntityFeature, RobovacCommand
 _LOGGER = logging.getLogger(__name__)
 
 SCAN_INTERVAL = timedelta(seconds=REFRESH_RATE)
-UPDATE_RETRIES = 3
+UPDATE_RETRIES = 4
 
 ATTR_ERROR = "error"
 ATTR_CLEANING_AREA = "cleaning_area"
@@ -227,7 +227,6 @@ class RoboVacEntity(StateVacuumEntity):
 
         supported_commands = set(self.vacuum.getSupportedCommands())
 
-        # Core supported actions in this entity implementation
         features |= VacuumEntityFeature.START
         features |= VacuumEntityFeature.RETURN_HOME
         features |= VacuumEntityFeature.SEND_COMMAND
@@ -399,15 +398,24 @@ class RoboVacEntity(StateVacuumEntity):
 
         except TuyaException as err:
             self.update_failures += 1
+
+            if self.update_failures < UPDATE_RETRIES:
+                _LOGGER.debug(
+                    "Update timeout/error for %s. Failure count: %s. Reason: %s",
+                    self.unique_id,
+                    self.update_failures,
+                    err,
+                )
+                return
+
             _LOGGER.warning(
                 "Update errored for %s. Failure count: %s. Reason: %s",
                 self.unique_id,
                 self.update_failures,
                 err,
             )
-            if self.update_failures >= UPDATE_RETRIES:
-                self.error_code = "CONNECTION_FAILED"
-                self._attr_available = False
+            self.error_code = "CONNECTION_FAILED"
+            self._attr_available = False
 
     async def async_update_vacuum(self):
         """Fetch latest state from the vacuum."""

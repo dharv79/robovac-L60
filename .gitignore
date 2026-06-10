@@ -1,10 +1,10 @@
 /node_modules
-<<<<<<< HEAD
+
 
 # Windows filesystem metadata — match everywhere in the tree
 [Dd]esktop.ini
 Thumbs.db
-=======
+
 __pycache__/
 *.pyc
->>>>>>> b5d61e688832c0d88f59a4060d4374d0a2a95790
+

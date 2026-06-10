@@ -1,1 +1,5 @@
 /node_modules
+
+# Windows filesystem metadata — match everywhere in the tree
+[Dd]esktop.ini
+Thumbs.db

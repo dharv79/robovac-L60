@@ -491,16 +491,16 @@ class TuyaDevice:
         if self._connected is True or self._enabled is False:
             return
 
-        sock = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
-        sock.settimeout(self.timeout)
         self._LOGGER.debug("Connecting to %s", self)
         try:
-            sock.connect((self.host, self.port))
-        except (socket.timeout, TimeoutError) as e:
-            self._dps[self.model_details.commands[RobovacCommand.ERROR]] = "CONNECTION_FAILED"
+            self.reader, self.writer = await asyncio.wait_for(
+                asyncio.open_connection(self.host, self.port),
+                timeout=self.timeout,
+            )
+        except (asyncio.TimeoutError, TimeoutError) as e:
             raise ConnectionTimeoutException("Connection timed out") from e
-
-        self.reader, self.writer = await asyncio.open_connection(sock=sock)
+        except OSError as e:
+            raise ConnectionException("Connection to {} failed: {}".format(self, e)) from e
         self._connected = True
 
         if self._ping_task is None or self._ping_task.done():

@@ -2,8 +2,8 @@ name: Create Release
 
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - "release/**"
   workflow_dispatch:
     inputs:
       tag:
@@ -33,15 +33,25 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            gh release create "${{ inputs.tag }}" \
-              --repo "${{ github.repository }}" \
-              --target "${{ inputs.target }}" \
-              --title "${{ inputs.tag }}" \
-              --generate-notes \
-              ${{ inputs.prerelease == true && '--prerelease' || '' }}
+            TAG="${{ inputs.tag }}"
+            TARGET="${{ inputs.target }}"
+            PRE="${{ inputs.prerelease == true && '--prerelease' || '' }}"
           else
-            gh release create "${{ github.ref_name }}" \
-              --repo "${{ github.repository }}" \
-              --title "${{ github.ref_name }}" \
-              --generate-notes
+            TAG="${GITHUB_REF_NAME#release/}"
+            TARGET="main"
+            PRE=""
           fi
+          echo "Creating release $TAG targeting $TARGET"
+          gh release create "$TAG" \
+            --repo "${{ github.repository }}" \
+            --target "$TARGET" \
+            --title "$TAG" \
+            --generate-notes \
+            $PRE
+
+      - name: Delete trigger branch
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/${GITHUB_REF_NAME}" || true

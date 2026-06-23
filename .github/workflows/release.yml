@@ -1,6 +1,9 @@
 name: Create Release
 
 on:
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       tag:
@@ -29,9 +32,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ inputs.tag }}" \
-            --repo "${{ github.repository }}" \
-            --target "${{ inputs.target }}" \
-            --title "${{ inputs.tag }}" \
-            --generate-notes \
-            ${{ inputs.prerelease == true && '--prerelease' || '' }}
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            gh release create "${{ inputs.tag }}" \
+              --repo "${{ github.repository }}" \
+              --target "${{ inputs.target }}" \
+              --title "${{ inputs.tag }}" \
+              --generate-notes \
+              ${{ inputs.prerelease == true && '--prerelease' || '' }}
+          else
+            gh release create "${{ github.ref_name }}" \
+              --repo "${{ github.repository }}" \
+              --title "${{ github.ref_name }}" \
+              --generate-notes
+          fi

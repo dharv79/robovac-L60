@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to create (e.g. v1.0.5)"
+        description: "Tag to create (e.g. v1.0.6)"
         required: true
         type: string
       target:
@@ -28,6 +28,9 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout trigger branch
+        uses: actions/checkout@v4
+
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -35,18 +38,25 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TAG="${{ inputs.tag }}"
             TARGET="${{ inputs.target }}"
-            PRE="${{ inputs.prerelease == true && '--prerelease' || '' }}"
+            PRE=${{ inputs.prerelease == true && '"--prerelease"' || '""' }}
           else
             TAG="${GITHUB_REF_NAME#release/}"
             TARGET="main"
             PRE=""
           fi
-          echo "Creating release $TAG targeting $TARGET"
+
+          if [ -f "RELEASE_NOTES.md" ]; then
+            NOTES_FLAG="--notes-file RELEASE_NOTES.md"
+          else
+            NOTES_FLAG="--generate-notes"
+          fi
+
+          echo "Creating release $TAG targeting $TARGET (notes: $NOTES_FLAG)"
           gh release create "$TAG" \
             --repo "${{ github.repository }}" \
             --target "$TARGET" \
             --title "$TAG" \
-            --generate-notes \
+            $NOTES_FLAG \
             $PRE
 
       - name: Delete trigger branch

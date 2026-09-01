@@ -68,3 +68,13 @@ State updates arrive via two paths: (1) polling — `async_update` → `async_up
 - `robovac_features` gates which extra state attributes appear in `extra_state_attributes`. A feature flag in `robovac_features` does not automatically mean the DPS code is mapped — both must be present.
 - The integration uses `iot_class: local_polling` but also receives gratuitous push updates from the device via `async_gratuitous_update_state`.
 - After 4 consecutive update failures (`UPDATE_RETRIES`), the entity is marked unavailable. On startup, `async_added_to_hass` makes up to 5 warm-up attempts (1.5 s apart) before giving up — this handles the L60's tendency to sleep and not respond immediately.
+
+## Code Output & Efficiency Directives
+
+These directives govern how code changes and responses are delivered in this repository:
+
+- Output only modified functions or specific blocks; never rewrite entire files unless fundamentally restructuring them.
+- Do not echo back code, errors, or logs provided in the prompt.
+- Omit boilerplate, import statements, and setup code unless they are being modified.
+- Provide code edits directly without introductory or concluding explanations.
+- **Workflow requirement:** Whenever a complex task is completed, or before starting a completely new substantive task in this session, explicitly remind the user to run the `/compact` command to compress the chat history.

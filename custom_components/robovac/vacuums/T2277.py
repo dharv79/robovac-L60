@@ -1,20 +1,7 @@
-from homeassistant.components.vacuum import VacuumEntityFeature
 from .base import RoboVacEntityFeature, RobovacCommand
 
 
 class T2277:
-    homeassistant_features = (
-#        | VacuumEntityFeature.CLEAN_SPOT
-        VacuumEntityFeature.FAN_SPEED
-        | VacuumEntityFeature.LOCATE
-        | VacuumEntityFeature.PAUSE
-        | VacuumEntityFeature.RETURN_HOME
-        | VacuumEntityFeature.SEND_COMMAND
-        | VacuumEntityFeature.START
-        | VacuumEntityFeature.STATE
-        | VacuumEntityFeature.STOP
-#        | VacuumEntityFeature.MAP
-    )
     robovac_features = (
     #    RoboVacEntityFeature.CLEANING_TIME
     #     | RoboVacEntityFeature.CLEANING_AREA

@@ -1,6 +1,6 @@
-from .vacuums.base import RobovacCommand
 from .tuyalocalapi import TuyaDevice
 from .vacuums import ROBOVAC_MODELS
+from .vacuums.base import RobovacCommand
 
 
 class ModelNotSupportedException(Exception):
@@ -8,19 +8,14 @@ class ModelNotSupportedException(Exception):
 
 
 class RoboVac(TuyaDevice):
-    """"""
+    """Tuya device bound to a specific RoboVac model definition."""
 
     def __init__(self, model_code, *args, **kwargs):
         if model_code not in ROBOVAC_MODELS:
-            raise ModelNotSupportedException(
-                "Model {} is not supported".format(model_code)
-            )
+            raise ModelNotSupportedException(f"Model {model_code} is not supported")
 
         self.model_details = ROBOVAC_MODELS[model_code]
         super().__init__(self.model_details, *args, **kwargs)
-
-    def getHomeAssistantFeatures(self):
-        return self.model_details.homeassistant_features
 
     def getRoboVacFeatures(self):
         return self.model_details.robovac_features
@@ -28,18 +23,11 @@ class RoboVac(TuyaDevice):
     def getFanSpeeds(self):
         return self.model_details.commands[RobovacCommand.FAN_SPEED]["values"]
 
-    def getModes(self):
-        return self.model_details.commands[RobovacCommand.MODE]["values"]
-
     def getSupportedCommands(self):
-        return list(self.model_details.commands.keys())
+        return list(self.model_details.commands)
 
     def getCommandCodes(self):
-        command_codes = {}
-        for key, value in self.model_details.commands.items():
-            if isinstance(value, dict):
-                command_codes[key] = str(value["code"])
-            else:
-                command_codes[key] = str(value)
-
-        return command_codes
+        return {
+            key: str(value["code"] if isinstance(value, dict) else value)
+            for key, value in self.model_details.commands.items()
+        }

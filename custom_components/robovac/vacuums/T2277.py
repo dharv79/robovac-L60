@@ -4,9 +4,8 @@ from .base import RoboVacEntityFeature, RobovacCommand
 
 class T2277:
     homeassistant_features = (
-        VacuumEntityFeature.BATTERY
 #        | VacuumEntityFeature.CLEAN_SPOT
-        | VacuumEntityFeature.FAN_SPEED
+        VacuumEntityFeature.FAN_SPEED
         | VacuumEntityFeature.LOCATE
         | VacuumEntityFeature.PAUSE
         | VacuumEntityFeature.RETURN_HOME

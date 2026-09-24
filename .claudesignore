@@ -1,0 +1,93 @@
+# .claudesignore — files/dirs Claude Code should ignore when indexing this repo
+# Stack: Python / Home Assistant custom integration (HACS)
+
+# --- Version control & Claude local state ---
+.git/
+.claude/
+
+# --- Python bytecode & caches ---
+__pycache__/
+*.py[cod]
+*$py.class
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.cache/
+.dmypy.json
+
+# --- Build & packaging artifacts ---
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+wheels/
+pip-wheel-metadata/
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+ENV/
+virtualenv/
+.python-version
+
+# --- Lockfiles ---
+poetry.lock
+Pipfile.lock
+requirements*.lock
+*.lock
+
+# --- Coverage & tooling reports ---
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+
+# --- Home Assistant runtime artifacts ---
+.storage/
+home-assistant.log*
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# --- Logs ---
+*.log
+
+# --- Large data & media files ---
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.gz
+*.7z
+*.rar
+*.csv
+*.parquet
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.svg
+*.ico
+*.mp4
+*.mov
+*.avi
+*.mp3
+*.wav
+*.pdf
+
+# --- OS & editor cruft ---
+.DS_Store
+Thumbs.db
+[Dd]esktop.ini
+.idea/
+.vscode/
+*.swp
+*~
+
+# --- Node (if any tooling is added later) ---
+node_modules/

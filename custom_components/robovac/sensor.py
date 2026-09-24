@@ -60,36 +60,24 @@ class RobovacBatterySensor(SensorEntity):
             identifiers={(DOMAIN, item[CONF_ID])},
             name=item[CONF_NAME],
         )
-
-        self._battery_level: int | None = None
-        self._attr_available = True
+        self._attr_native_value: int | None = None
 
     async def async_added_to_hass(self) -> None:
         """Initialise sensor state on add."""
         await self.async_update()
 
     async def async_update(self) -> None:
-        """Poll battery from the vacuum entity cache."""
+        """Poll battery from the vacuum entity cache.
+
+        Always stays available and keeps the last known reading, so the sensor
+        doesn't flap while the vacuum sleeps or reconnects.
+        """
         try:
             vac_entity = self.hass.data[DOMAIN][CONF_VACS][self.robovac_id]
-            latest_battery = getattr(vac_entity, "_battery_level_cache", None)
+        except (AttributeError, KeyError, TypeError):
+            _LOGGER.debug("Vacuum entity for %s not ready yet", self.robovac_id)
+            return
 
-            # Only replace cached value when the vacuum has a real reading.
-            if latest_battery is not None:
-                self._battery_level = latest_battery
-
-            # Keep sensor available after reboot even if first poll has not landed yet.
-            self._attr_available = True
-
-        except Exception as err:
-            _LOGGER.debug(
-                "Failed to get battery level for %s: %s",
-                self.robovac_id,
-                err,
-            )
-            # Keep last known value and stay available rather than flapping unavailable.
-            self._attr_available = True
-
-    @property
-    def native_value(self) -> int | None:
-        return self._battery_level
+        latest_battery = getattr(vac_entity, "_battery_level_cache", None)
+        if latest_battery is not None:
+            self._attr_native_value = latest_battery

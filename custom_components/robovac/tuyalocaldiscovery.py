@@ -3,12 +3,12 @@ import json
 import logging
 from hashlib import md5
 
-from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 _LOGGER = logging.getLogger(__name__)
 
 UDP_KEY = md5(b"yGAdlopoPVldABfn").digest()
+UDP_CIPHER = Cipher(algorithms.AES(UDP_KEY), modes.ECB())
 
 
 class DiscoveryPortsNotAvailableException(Exception):
@@ -36,7 +36,7 @@ class TuyaLocalDiscovery(asyncio.DatagramProtocol):
         except Exception as e:
             raise DiscoveryPortsNotAvailableException(
                 "Ports 6666 and 6667 are needed for autodiscovery but are unavailable. This may be due to having the localtuya integration installed and it not allowing other integrations to use the same ports. A pull request has been raised to address this: https://github.com/rospogrigio/localtuya/pull/1481"
-            )
+            ) from e
 
     def close(self, *args, **kwargs):
         for transport, _ in self._listeners:
@@ -45,13 +45,15 @@ class TuyaLocalDiscovery(asyncio.DatagramProtocol):
     def datagram_received(self, data, addr):
         data = data[20:-8]
         try:
-            cipher = Cipher(algorithms.AES(UDP_KEY), modes.ECB(), default_backend())
-            decryptor = cipher.decryptor()
+            decryptor = UDP_CIPHER.decryptor()
             padded_data = decryptor.update(data) + decryptor.finalize()
-            data = padded_data[: -ord(padded_data[len(padded_data) - 1 :])]
-
+            data = padded_data[: -padded_data[-1]]
         except Exception:
-            data = data.decode()
+            pass
 
-        decoded = json.loads(data)
+        try:
+            decoded = json.loads(data)
+        except ValueError:
+            _LOGGER.debug("Ignoring undecodable broadcast from %s", addr)
+            return
         asyncio.ensure_future(self.discovered_callback(decoded))

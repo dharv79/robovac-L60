@@ -20,9 +20,7 @@ from __future__ import annotations
 import asyncio
 import ast
 import base64
-import json
 import logging
-import time
 from datetime import timedelta
 from typing import Any
 
@@ -49,7 +47,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import CONF_VACS, DOMAIN, PING_RATE, REFRESH_RATE, TIMEOUT
 from .errors import getErrorMessage
 from .robovac import ModelNotSupportedException, RoboVac
-from .tuyalocalapi import TuyaException
+from .tuyalocalapi import InvalidKey, TuyaException
 from .vacuums.base import RoboVacEntityFeature, RobovacCommand
 
 _LOGGER = logging.getLogger(__name__)
@@ -72,12 +70,6 @@ MODE_MAPPING = {
     "AggN": "Pause",
     "AggG": "Stop / Go to charge",
     "AA==": "Standby",
-}
-
-EMPTY_MAPPING = {
-    "BBICGAE=": "Empty dust",
-    "BBICIAE=": "Wash mop",
-    "BBICEAE=": "Dry mop",
 }
 
 TUYA_STATUS_MAPPING = {
@@ -192,6 +184,9 @@ class RoboVacEntity(StateVacuumEntity):
             )
         except ModelNotSupportedException:
             self.error_code = "UNSUPPORTED_MODEL"
+            self.vacuum = None
+        except InvalidKey:
+            self.error_code = "INVALID_KEY"
             self.vacuum = None
 
         if self.vacuum is not None:
@@ -499,36 +494,73 @@ class RoboVacEntity(StateVacuumEntity):
         _LOGGER.debug("Send command %s pressed", command)
         params = params if isinstance(params, dict) else {}
 
-        # These DPS codes are L60-specific; see CLAUDE.md.
-        if command == "edgeClean":
-            updates = [{"5": "Edge"}]
-        elif command == "smallRoomClean":
-            updates = [{"5": "SmallRoom"}]
+        if command in ("edgeClean", "smallRoomClean"):
+            feature = (
+                RoboVacEntityFeature.EDGE
+                if command == "edgeClean"
+                else RoboVacEntityFeature.SMALL_ROOM
+            )
+            if not self._supports(feature):
+                _LOGGER.debug(
+                    "%s does not support %s; ignoring send_command %s",
+                    self.unique_id,
+                    feature.name,
+                    command,
+                )
+                return
+            await self._async_set_mode("Edge" if command == "edgeClean" else "SmallRoom")
+            return
         elif command == "autoClean":
-            updates = [{"152": "BBoCCAE="}]
-        elif command == "autoReturn":
-            updates = [{"135": not self._passthrough.get(ATTR_AUTO_RETURN)}]
-        elif command == "doNotDisturb":
-            enable = not self._passthrough.get(ATTR_DO_NOT_DISTURB)
-            updates = [
-                {"139": "MTAwMDAwMDAw" if enable else "MEQ4MDAwMDAw"},
-                {"107": enable},
-            ]
-        elif command == "boostIQ":
-            updates = [{"118": not self._passthrough.get(ATTR_BOOST_IQ)}]
+            await self._async_set_mode("BBoCCAE=")
+            return
+        elif command in ("autoReturn", "doNotDisturb", "boostIQ"):
+            feature, robovac_command, attr = {
+                "autoReturn": (
+                    RoboVacEntityFeature.AUTO_RETURN,
+                    RobovacCommand.AUTO_RETURN,
+                    ATTR_AUTO_RETURN,
+                ),
+                "doNotDisturb": (
+                    RoboVacEntityFeature.DO_NOT_DISTURB,
+                    RobovacCommand.DO_NOT_DISTURB,
+                    ATTR_DO_NOT_DISTURB,
+                ),
+                "boostIQ": (
+                    RoboVacEntityFeature.BOOST_IQ,
+                    RobovacCommand.BOOST_IQ,
+                    ATTR_BOOST_IQ,
+                ),
+            }[command]
+            code = self._tuya_command_codes.get(robovac_command)
+            if not self._supports(feature) or code is None:
+                _LOGGER.debug(
+                    "%s does not support %s; ignoring send_command %s",
+                    self.unique_id,
+                    feature.name,
+                    command,
+                )
+                return
+            updates = [{code: not self._passthrough.get(attr)}]
         elif command == "roomClean":
-            method_call = {
-                "method": "selectRoomsClean",
-                "data": {
-                    "roomIds": params.get("roomIds", [1]),
-                    "cleanTimes": params.get("count", 1),
-                },
-                "timestamp": round(time.time() * 1000),
-            }
-            json_str = json.dumps(method_call, separators=(",", ":"))
-            _LOGGER.debug("roomClean call %s", json_str)
-            updates = [{"124": base64.b64encode(json_str.encode("utf8")).decode("utf8")}]
+            if not self._supports(RoboVacEntityFeature.ROOM):
+                _LOGGER.debug(
+                    "%s does not support room-select cleaning; ignoring send_command roomClean",
+                    self.unique_id,
+                )
+                return
+            _LOGGER.warning(
+                "roomClean has no known DPS code for any supported model yet; ignoring send_command roomClean"
+            )
+            return
         else:
+            if not str(command).isdigit():
+                _LOGGER.debug(
+                    "send_command %s is not a known numeric DPS code for %s; "
+                    "writing %r to it anyway",
+                    command,
+                    self.unique_id,
+                    params.get("value", ""),
+                )
             updates = [{command: params.get("value", "")}]
 
         await self._async_send_dps(*updates)

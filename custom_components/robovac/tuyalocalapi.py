@@ -302,13 +302,13 @@ class Message:
                 payload_text = payload_data.decode("utf8")
             except UnicodeDecodeError as e:
                 device._LOGGER.debug(payload_data.hex())
-                device._LOGGER.error(e)
+                device._LOGGER.debug(e)
                 raise MessageDecodeFailed() from e
             try:
                 payload = json.loads(payload_text)
             except json.decoder.JSONDecodeError as e:
                 device._LOGGER.debug(payload_data.hex())
-                device._LOGGER.error(e)
+                device._LOGGER.debug(e)
                 raise MessageDecodeFailed() from e
 
         return cls(command, payload, sequence)
@@ -343,7 +343,7 @@ class TuyaDevice:
         self.ping_interval = ping_interval
         self.update_entity_state_cb = update_entity_state
 
-        if len(local_key) != 16:
+        if not local_key or len(local_key) != 16:
             raise InvalidKey("Local key should be a 16-character string")
 
         self.cipher = TuyaCipher(local_key, self.version)

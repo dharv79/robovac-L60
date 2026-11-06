@@ -82,3 +82,9 @@ Verified on Dobby: `AggP` (STOP_GOHOME, method 15) stops a return to dock and le
 
 ## Last prompt sensor (Phase 14, 06/11/2026)
 `LastPromptSensor` (diagnostic, text) shows DPS 178 as text via `PROMPT_TEXT`, or `code N` when unnamed, with a `code` attribute. `RoboVacData.last_prompt` keeps the previous value when a push lacks 178 or carries no code. Capture mode logs decoded protobuf for any DPS that decodes. Layout: `models.md`.
+
+## Cleaning events and history sensors (Phase 16, 06/11/2026)
+- `cleaning.py` `CleanTracker` turns live activities into events. A clean starts at the first CLEANING with none open, stays open through pauses and the trip home, and finishes once DOCKED or IDLE has held `FINISH_DEBOUNCE` (10 s). Flaps while auto-docking and pause/resume therefore make one clean. ERROR fires once per entry. A clean already running when HA starts is neither started nor finished.
+- The coordinator runs the tracker in `_parse`, arms an `async_call_later` timer for the pending finish (`_flush_clean`), and fires `robovac_cleaning_started` / `_finished` / `_error` on `hass.bus` with `vacuum_id`, `device_id`, `entity_id`, plus `duration` (seconds, finished), `error` (error event) and `area` when the model maps it.
+- `logbook.py` describes the three events.
+- `Cleaning count` (`total_increasing`), `Last cleaned` (timestamp) and `Last clean duration` (seconds, shown in minutes) are `RestoreSensor`s, always available, updated by the finished event for their own vacuum. The count starts at 0 on first install, not from history.

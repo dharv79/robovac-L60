@@ -16,15 +16,26 @@
 import logging
 from datetime import datetime
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
-from homeassistant.const import CONF_ID, CONF_NAME, PERCENTAGE, EntityCategory
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.components.sensor import (
+    RestoreSensor,
+    SensorDeviceClass,
+    SensorEntity,
+    SensorStateClass,
+)
+from homeassistant.const import (
+    CONF_ID,
+    CONF_NAME,
+    PERCENTAGE,
+    EntityCategory,
+    UnitOfTime,
+)
+from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import RoboVacConfigEntry
-from .const import DOMAIN
+from .const import DOMAIN, EVENT_CLEANING_FINISHED
 from .coordinator import PROMPT_TEXT, STATUS_MAPPING, RoboVacCoordinator
 from .entity import RoboVacBaseEntity
 from .vacuums.base import RobovacCommand
@@ -43,6 +54,11 @@ async def async_setup_entry(
         entities.append(RobovacBatterySensor(coordinator))
         if coordinator.vacuum is not None:
             entities.append(LastSeenSensor(coordinator))
+            entities += [
+                CleaningCountSensor(coordinator),
+                LastCleanedSensor(coordinator),
+                LastCleanDurationSensor(coordinator),
+            ]
             if RobovacCommand.STATUS in coordinator.command_codes:
                 entities.append(StatusSensor(coordinator))
             if RobovacCommand.LAST_PROMPT in coordinator.command_codes:
@@ -144,3 +160,84 @@ class LastPromptSensor(RoboVacBaseEntity, SensorEntity):
     def extra_state_attributes(self) -> dict[str, int] | None:
         code = self._code()
         return None if code is None else {"code": code}
+
+
+class CleanHistorySensor(RoboVacBaseEntity, RestoreSensor):
+    """Updated by each finished-clean event; keeps its value across restarts."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def available(self) -> bool:
+        return True  # history is still true while the vacuum is offline
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        if (last := await self.async_get_last_sensor_data()) is not None:
+            self._restore(last.native_value)
+
+        @callback
+        def mine(data) -> bool:
+            return data.get("vacuum_id") == self.robovac_id
+
+        self.async_on_remove(
+            self.hass.bus.async_listen(
+                EVENT_CLEANING_FINISHED, self._handle_finished, event_filter=mine
+            )
+        )
+
+    @callback
+    def _handle_finished(self, event: Event) -> None:
+        self._apply(event)
+        self.async_write_ha_state()
+
+    def _restore(self, value) -> None:
+        self._attr_native_value = value
+
+    def _apply(self, event: Event) -> None:
+        raise NotImplementedError
+
+
+class CleaningCountSensor(CleanHistorySensor):
+    """Finished cleans since the sensor was created."""
+
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+
+    def __init__(self, coordinator: RoboVacCoordinator) -> None:
+        super().__init__(coordinator, "cleaning_count")
+        self._attr_native_value = 0
+
+    def _restore(self, value) -> None:
+        try:
+            self._attr_native_value = int(value)
+        except (TypeError, ValueError):
+            pass
+
+    def _apply(self, event: Event) -> None:
+        self._attr_native_value = int(self._attr_native_value or 0) + 1
+
+
+class LastCleanedSensor(CleanHistorySensor):
+    """When the last clean finished."""
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    def __init__(self, coordinator: RoboVacCoordinator) -> None:
+        super().__init__(coordinator, "last_cleaned")
+
+    def _apply(self, event: Event) -> None:
+        self._attr_native_value = event.time_fired
+
+
+class LastCleanDurationSensor(CleanHistorySensor):
+    """How long the last clean ran."""
+
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_native_unit_of_measurement = UnitOfTime.SECONDS
+    _attr_suggested_unit_of_measurement = UnitOfTime.MINUTES
+
+    def __init__(self, coordinator: RoboVacCoordinator) -> None:
+        super().__init__(coordinator, "last_clean_duration")
+
+    def _apply(self, event: Event) -> None:
+        self._attr_native_value = event.data.get("duration")

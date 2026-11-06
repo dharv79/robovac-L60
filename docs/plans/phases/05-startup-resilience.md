@@ -45,7 +45,7 @@ On-device checks, still open:
 - [ ] The consumables attribute is still absent on the L60.
 
 ## Status
-Done; PR pending.
+Done, merged (0641822, PR #10). On-device checks open.
 
 ## Built (06/11/2026)
 - Code and docs are as listed above.

@@ -2,6 +2,8 @@ from .base import RoboVacEntityFeature, RobovacCommand
 
 
 class T2267:
+    # GET omits mode/status; ask for a push on connect (tuyalocalapi UPDATEDPS).
+    query_dps_on_connect = (152, 153)
     robovac_features = (
     #    RoboVacEntityFeature.CLEANING_TIME
     #     | RoboVacEntityFeature.CLEANING_AREA

@@ -22,3 +22,7 @@ Older models (T21xx) use low DPS codes (2–106); newer L-series models like the
 ## HA 2026.9 `VacuumEntityFeature.BATTERY` crash (v1.0.6, PR #3)
 
 A dead `homeassistant_features` attribute referencing `VacuumEntityFeature.BATTERY` took the whole integration down when HA 2026.9 removed that enum member. The attribute was removed from all model files; feature flags are now derived from `commands` only.
+
+## Optional model attributes
+
+- `query_dps_on_connect`: a tuple of DPS codes the device should be asked to push after each connect, for codes its GET reply omits (`tuyalocalapi._async_query_dps`, UPDATEDPS `0x12`). Set on T2267 as `(152, 153)`. Leave it unset for other models until verified on that model.

@@ -3,17 +3,21 @@ on:
   push:
     branches:
       - "release/**"
-permissions:
-  contents: write
+permissions: {}
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout trigger branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
         run: |
           TAG="${GITHUB_REF_NAME#release/}"
           if [ -f "RELEASE_NOTES.md" ]; then
@@ -27,7 +31,7 @@ jobs:
             PRERELEASE_FLAG=""
           fi
           gh release create "$TAG" \
-            --repo "${{ github.repository }}" \
+            --repo "$REPO" \
             --target "main" \
             --title "$TAG" \
             $NOTES_FLAG \
@@ -35,5 +39,6 @@ jobs:
       - name: Delete trigger branch
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
         run: |
-          gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/${GITHUB_REF_NAME}" || true
+          gh api -X DELETE "repos/${REPO}/git/refs/heads/${GITHUB_REF_NAME}" || true

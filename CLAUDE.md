@@ -36,6 +36,7 @@ Home Assistant custom integration (HACS) for Eufy RoboVac vacuums, focused on th
 | Do-not-break | `docs/architecture/do-not-break.md` | Reasoning behind each rule below |
 | Testing | `docs/architecture/testing.md` | CI, running pytest/ruff locally, test map, manual HA testing |
 | Releases | `docs/architecture/releases.md` | Release-branch workflow, version history |
+| Security | `docs/architecture/security.md` | Threat model, findings, accepted risks, scanners |
 | Plans | `docs/plans/README.md` | Phase status, locked decisions, process |
 
 ## Do-not-break

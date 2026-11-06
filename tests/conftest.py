@@ -32,7 +32,7 @@ from homeassistant.const import (
 
 from custom_components.robovac.vacuum import RoboVacEntity
 
-TEST_KEY = "0123456789abcdef"  # fake 16-char local key, never a real one
+TEST_KEY = "0123456789abcdef"  # fake 16-char local key, never a real one  # gitleaks:allow
 
 # Raw DPS 153 (status) values for the L60.
 CLEANING = "BgoAEAUyAA=="

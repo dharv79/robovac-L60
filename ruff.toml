@@ -1,6 +1,11 @@
 # Lint baseline (Phase 07): syntax errors and pyflakes only, so the existing
 # code passes. Tighten in later phases, one rule family per commit.
+# Phase 08 adds flake8-bandit (S); each source hit is fixed or has a per-line
+# `# noqa: S… - reason`. Tests may use bare asserts.
 target-version = "py313"
 
 [lint]
-select = ["E9", "F"]
+select = ["E9", "F", "S"]
+
+[lint.per-file-ignores]
+"tests/**" = ["S101"]

@@ -60,6 +60,7 @@ async def test_user_step_creates_entry(hass):
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == USER_INPUT[CONF_USERNAME]
     assert result["data"][CONF_VACS] == {"dobby-id": item}
+    assert CONF_PASSWORD not in result["data"]  # Phase 08: never stored
 
 
 @pytest.mark.parametrize(

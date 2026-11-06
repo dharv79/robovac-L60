@@ -104,7 +104,32 @@ Find and fix security weaknesses in the integration, and in the repo's supply ch
   - [ ] An HA restart with debug logging on shows no localKey in `home-assistant.log`.
 
 ## Status
-Planned, not built.
+In progress (PR open). On-device checks open.
+
+## Built (06/11/2026)
+- **Decisions (user, 06/11/2026):** stop storing the password, with a migration; document raw `send_command` only; add `SECURITY.md` using GitHub private vulnerability reporting.
+- **Findings:** S1-S14 in `docs/architecture/security.md`. S1-S11 fixed, S12-S14 accepted.
+- **Code changes:**
+  - `TuyaDevice.__repr__` no longer includes the key.
+  - The config-flow skip log no longer includes the payload.
+  - Tuya cloud errors are redacted (`TuyaAPIError`), with `timeout=10`.
+  - Cloud API hosts must be HTTPS.
+  - Eufy headers are built per call.
+  - Discovery: `is_valid_broadcast` checks packets, and the callback task is tracked.
+  - IP changes: `async_update_device_ip` applies one only after `async_probe_device` (an encrypted GET with the stored key) succeeds, rate-limited to one attempt per vacuum per 60 s.
+  - The frame length is range-checked, and `from_bytes(require_encrypted=True)`.
+  - Config entry `VERSION` 2, with `async_migrate_entry`.
+- **CI changes:**
+  - ruff `S` is enabled, with per-line justified `noqa`.
+  - New `secrets` job: gitleaks 8.30.1, checksum-pinned, full history.
+  - Actions are SHA-pinned (checkout v4.4.0, setup-python v5.6.0).
+  - Release job: `contents: write` only, with `env:` for expressions.
+  - Dependabot for `github-actions`.
+- **Secret scan:** gitleaks found 3 false positives, now in `.gitleaksignore`. GitHub secret scanning is unavailable because the repo has no Advanced Security. No real secrets were found.
+- **Tests:** `tests/test_security.py` adds 32 tests. The config-flow test now asserts the password isn't stored. Full suite: 201 passed.
+- **Follow-ups found while building:**
+  - `TuyaAPISession.acquire_session` calls a missing `self.getCountryCode` when `phoneCode` is empty. This is a correctness bug, not a security one, and is deferred.
+  - Enable GitHub private vulnerability reporting in the repo settings; that's a user action.
 
 ## Size
 M, ~50-85k. The estimate assumes Phase 07's CI exists. It's at the high end if the discovery verify-on-new-IP change needs more `__init__` restructuring, or if the user approves dropping the stored password, which brings in the migration.

@@ -20,9 +20,9 @@ Home Assistant integration for Eufy RoboVac (L60 focus). Active plan: review the
 | 11 Control entities + services | Done, merged (9e438de, PR #16); CI green; on-device checks open | M, ~50-80k |
 | 12 Status + connectivity entities | Done, merged (8ed3785, PR #17); CI green; on-device checks open | M, ~40-65k |
 | 13 Diagnostics + capture tools | Done, merged (c8f9ada, PR #20); CI green; on-device checks open | M, ~40k actual |
-| 14 Protobuf decoder + last-prompt sensor | In progress (draft PR) | M, ~50-85k |
+| 14 Protobuf decoder + last-prompt sensor | Done, merged (8807247, PR #21); CI green; codes 85 and 40 still unnamed | M, ~50k actual |
 | 15 Do Not Disturb entities | On hold (needs DPS 157 captures + Phase 14) | M, ~40-70k |
-| 16 Cleaning events + history sensors | Planned, not built | M, ~40-65k |
+| 16 Cleaning events + history sensors | In progress (draft PR) | M, ~40-65k |
 | 17 Device triggers + blueprints | Planned, not built | M, ~40-65k |
 | 18 Modern L60 dashboard (Lovelace YAML, core cards) | Planned, not built | M, ~40-65k |
 | 19 Reauth / reconfigure + IP test | Planned, not built | M, ~55-85k |

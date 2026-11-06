@@ -24,7 +24,10 @@ From the 06/11/2026 brainstorm (features: cleaning events, cleaning count and la
 - [ ] CI tests cover the transition logic with fake state sequences.
 
 ## Status
-Planned, not built.
+In progress (draft PR).
 
 ## Size
 M, ~40-65k.
+
+## Built (06/11/2026)
+`cleaning.py` tracker (10 s finish debounce), coordinator events, `logbook.py`, three restoring sensors. Tests in `tests/test_cleaning.py` (315 total). On-device check open: one full clean on Dobby gives one started, one finished, count +1, and the logbook shows both.

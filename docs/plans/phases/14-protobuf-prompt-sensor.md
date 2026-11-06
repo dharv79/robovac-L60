@@ -22,7 +22,7 @@ From the 06/11/2026 brainstorm (features: decoder for the L60's encoded values, 
 - [ ] DPS 178 field layout documented in `docs/architecture/models.md` as a dated section.
 
 ## Status
-In progress (draft PR). Acceptance 2 is partly met: only code 31 has text; 85 and 40 show as `code N` until captured.
+Done, merged (8807247, PR #21). Acceptance 2 is partly met: only code 31 has text; 85 and 40 show as `code N` until captured.
 
 ## Size
 M, ~50-85k.

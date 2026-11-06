@@ -36,13 +36,28 @@ from homeassistant.const import (
     CONF_MODEL,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.event import async_call_later, async_track_time_interval
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
 from . import tuyalocalapi
 from .proto import ProtoError, decode_prefixed, try_decode
-from .const import CONF_CAPTURE, DOMAIN, PING_RATE, REFRESH_RATE, TIMEOUT
+from .cleaning import ERROR as CLEAN_ERROR
+from .cleaning import FINISHED as CLEAN_FINISHED
+from .cleaning import STARTED as CLEAN_STARTED
+from .cleaning import CleanEvent, CleanTracker
+from .const import (
+    CONF_CAPTURE,
+    DOMAIN,
+    EVENT_CLEANING_ERROR,
+    EVENT_CLEANING_FINISHED,
+    EVENT_CLEANING_STARTED,
+    PING_RATE,
+    REFRESH_RATE,
+    TIMEOUT,
+)
 from .robovac import ModelNotSupportedException, RoboVac
 from .tuyalocalapi import InvalidKey, TuyaException
 from .vacuums.base import (
@@ -211,6 +226,8 @@ class RoboVacCoordinator(DataUpdateCoordinator[RoboVacData]):
         self._unsub_watchdog = None
         self._last_data = 0.0
         self.last_seen: datetime | None = None  # last push or GET reply
+        self.clean_tracker = CleanTracker()
+        self._clean_timer: Callable[[], None] | None = None
         self.capture = False
         self._capture_dps: dict[str, Any] = {}
         self.vacuum: RoboVac | None = self._create_device()
@@ -332,6 +349,7 @@ class RoboVacCoordinator(DataUpdateCoordinator[RoboVacData]):
             self._unsub_watchdog()
             self._unsub_watchdog = None
         self.async_set_capture(False)
+        self._cancel_clean_timer()
         if self._warmup_task is not None:
             self._warmup_task.cancel()
         if self._refresh_task is not None:
@@ -399,6 +417,58 @@ class RoboVacCoordinator(DataUpdateCoordinator[RoboVacData]):
         if not self._unavailable_logged:
             _LOGGER.warning("Vacuum %s is unavailable: %s", self.vacuum_id, reason)
             self._unavailable_logged = True
+
+    # --- cleaning events ------------------------------------------------
+
+    def _track_cleaning(self, data: RoboVacData) -> None:
+        activity = live_activity(data.status, data.error)
+        events = self.clean_tracker.update(
+            activity, time.monotonic(), dt_util.utcnow()
+        )
+        for event in events:
+            self._fire_clean_event(event, data)
+        self._cancel_clean_timer()
+        deadline = self.clean_tracker.deadline
+        if deadline is not None:
+            self._clean_timer = async_call_later(
+                self.hass, max(deadline - time.monotonic(), 0) + 0.5, self._flush_clean
+            )
+
+    async def _flush_clean(self, _now: datetime) -> None:
+        """The debounce elapsed with no new data: confirm a pending finish."""
+        self._clean_timer = None
+        if self.data is not None:
+            self._track_cleaning(self.data)
+
+    def _cancel_clean_timer(self) -> None:
+        if self._clean_timer is not None:
+            self._clean_timer()
+            self._clean_timer = None
+
+    def _fire_clean_event(self, event: CleanEvent, data: RoboVacData) -> None:
+        name = {
+            CLEAN_STARTED: EVENT_CLEANING_STARTED,
+            CLEAN_FINISHED: EVENT_CLEANING_FINISHED,
+            CLEAN_ERROR: EVENT_CLEANING_ERROR,
+        }[event.kind]
+        device = dr.async_get(self.hass).async_get_device(
+            identifiers={(DOMAIN, self.vacuum_id)}
+        )
+        payload: dict[str, Any] = {
+            "vacuum_id": self.vacuum_id,
+            "device_id": device.id if device else None,
+            "entity_id": er.async_get(self.hass).async_get_entity_id(
+                "vacuum", DOMAIN, self.vacuum_id
+            ),
+        }
+        if event.duration is not None:
+            payload["duration"] = round(event.duration)
+        if event.kind == CLEAN_ERROR:
+            payload["error"] = data.error
+        if (area := data.passthrough.get(ATTR_CLEANING_AREA)) is not None:
+            payload["area"] = area
+        _LOGGER.debug("Cleaning event %s for %s: %s", name, self.vacuum_id, payload)
+        self.hass.bus.async_fire(name, payload)
 
     # --- updates --------------------------------------------------------
 
@@ -528,6 +598,7 @@ class RoboVacCoordinator(DataUpdateCoordinator[RoboVacData]):
             },
         )
         self.fault = None
+        self._track_cleaning(data)
         self._last_data = time.monotonic()
         self.last_seen = dt_util.utcnow()
         if live_activity(data.status, data.error) == VacuumActivity.CLEANING:

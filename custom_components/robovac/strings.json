@@ -79,6 +79,15 @@
             },
             "last_prompt": {
                 "name": "Last prompt"
+            },
+            "cleaning_count": {
+                "name": "Cleaning count"
+            },
+            "last_cleaned": {
+                "name": "Last cleaned"
+            },
+            "last_clean_duration": {
+                "name": "Last clean duration"
             }
         }
     },

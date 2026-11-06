@@ -34,7 +34,7 @@ Add a test suite and a CI workflow, so the binding process's "green CI" step act
 - **CI:** green on the PR (see Status).
 
 ## Status
-Done; PR pending.
+Done, merged (973920f, PR #12). CI green on the PR (first run, 1m43s).
 
 ## Built (06/11/2026)
 - Everything is as listed above.

@@ -4,3 +4,5 @@
 77a77ea717a9af8edac9b08a5089ce0f2d5b7aff:tests/conftest.py:generic-api-key:35
 # Public Eufy app client_Secret shipped in every install, not a user secret.
 ff6184af42163ad6404ea7d1627abb37acce1ac6:custom_components/robovac/eufywebapi.py:generic-api-key:27
+# Fake OTHER_KEY in tests/test_security.py before its inline gitleaks:allow.
+97107dfd6508032bfa59957280aae04ac2545ac9:tests/test_security.py:generic-api-key:43

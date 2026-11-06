@@ -40,7 +40,7 @@ from custom_components.robovac.tuyalocaldiscovery import (
 from .conftest import TEST_KEY, make_item
 from .test_tuyalocalapi import device_frame
 
-OTHER_KEY = "fedcba9876543210"  # fake key for "another device" in cloud data
+OTHER_KEY = "fedcba9876543210"  # fake key for "another device" in cloud data  # gitleaks:allow
 
 
 async def _noop():

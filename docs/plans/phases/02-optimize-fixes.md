@@ -28,7 +28,7 @@ Implement fixes for the findings in `phases/01-code-review.md`, in priority orde
 - Follow-on cleanup: `json`/`time` imports in `vacuum.py` dropped (only used by the old `roomClean` JSON-RPC payload); `do-not-break.md` rule 6 (hard-coded L60 DPS codes) replaced with a rule describing the new lookup-based pattern; the matching "Conventions and gotchas" bullet removed from `CLAUDE.md`.
 
 ## Status
-In progress. All six findings' code changes landed and compile clean. Finding #1's on-device verification (do-not-disturb / boost IQ actually toggling on a real L60) is still outstanding — needs the user to confirm live L60 access before this is called fully closed per the binding process (branch → implement/test → draft PR → green CI → merge → sync main → CI-replica test run → update plan docs → stop and report).
+Done, merged (1d54606, PR #5). Finding #1's on-device verification (do-not-disturb / boost IQ actually toggling on a real L60) is still outstanding — needs the user to confirm live L60 access.
 
 ## Size
 M, ~45k actual (6 code changes across 5 files + 2 doc files; on-device verification not yet done).

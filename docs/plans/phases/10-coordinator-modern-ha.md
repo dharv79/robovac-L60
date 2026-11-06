@@ -27,7 +27,7 @@ See the `test_coordinator.py` row in `docs/architecture/testing.md`. The existin
 - [x] CI green; `ha-entity.md` and the CLAUDE.md code map updated.
 
 ## Status
-Built (06/11/2026); PR pending. On-device checks pending.
+Done, merged (2fac439, PR #15); CI green. On-device checks pending.
 
 ## Built (06/11/2026)
 - 257 tests pass locally; ruff clean.

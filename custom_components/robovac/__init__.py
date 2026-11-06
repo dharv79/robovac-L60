@@ -28,7 +28,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_VACS, CONFIG_VERSION, DOMAIN
+from .const import CONF_CAPTURE, CONF_VACS, CONFIG_VERSION, DOMAIN
 from .coordinator import RoboVacCoordinator
 from .tuyalocalapi import async_probe_device
 from .tuyalocaldiscovery import TuyaLocalDiscovery
@@ -147,9 +147,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: RoboVacConfigEntry) -> 
     return unloaded
 
 
+LIVE_KEYS = (CONF_IP_ADDRESS, CONF_CAPTURE)  # applied per vacuum, no reload
+
+
 def _without_ip(vacs: dict) -> dict:
     return {
-        vac_id: {k: v for k, v in vac.items() if k != CONF_IP_ADDRESS}
+        vac_id: {k: v for k, v in vac.items() if k not in LIVE_KEYS}
         for vac_id, vac in vacs.items()
     }
 
@@ -164,6 +167,7 @@ async def update_listener(hass: HomeAssistant, entry: RoboVacConfigEntry) -> Non
         await hass.config_entries.async_reload(entry.entry_id)
         return
     for vac_id, coordinator in coordinators.items():
+        coordinator.async_set_capture(bool(vacs[vac_id].get(CONF_CAPTURE)))
         await coordinator.async_set_host(vacs[vac_id].get(CONF_IP_ADDRESS))
 
 

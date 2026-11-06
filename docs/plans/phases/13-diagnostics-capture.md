@@ -25,7 +25,7 @@ Add HA's "Download diagnostics" (Settings → Devices & services → Robovac →
 - [ ] `python -m py_compile` passes; `docs/architecture/ha-entity.md` mentions diagnostics.
 
 ## Status
-Planned, not built.
+In progress (draft PR).
 
 ## Size
 M, ~40-65k. Re-estimated 06/11/2026 (was S, ~20-35k): `get_dps` service and capture mode added.

@@ -8,3 +8,13 @@ auto_clean:
     entity:
       integration: robovac
       domain: vacuum
+get_dps:
+  target:
+    entity:
+      integration: robovac
+      domain: vacuum
+  fields:
+    codes:
+      example: '["157", "159"]'
+      selector:
+        object:

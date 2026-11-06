@@ -31,9 +31,13 @@
                 "title": "Edit vacuum",
                 "data": {
                     "autodiscovery": "Enable autodiscovery",
-                    "ip_address": "IP Address"
+                    "ip_address": "IP Address",
+                    "capture_mode": "Capture mode (log every DPS change)"
                 },
-                "description": "Autodiscovery will automatically update the IP address"
+                "description": "Autodiscovery will automatically update the IP address",
+                "data_description": {
+                    "capture_mode": "Logs each raw DPS change at info level and turns on verbose transport logging. Use it to record what the Eufy app changes."
+                }
             }
         }
     },
@@ -84,6 +88,16 @@
         "auto_clean": {
             "name": "Auto clean",
             "description": "Starts an auto clean directly, without the resume and dock-cancel fallbacks."
+        },
+        "get_dps": {
+            "name": "Get DPS",
+            "description": "Forces a read and returns the vacuum's raw DPS values, for reverse-engineering.",
+            "fields": {
+                "codes": {
+                    "name": "Codes",
+                    "description": "Only return these DPS codes (default: all)."
+                }
+            }
         }
     }
 }

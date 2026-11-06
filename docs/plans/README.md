@@ -19,7 +19,7 @@ Home Assistant integration for Eufy RoboVac (L60 focus). Active plan: review the
 | 10 Shared coordinator + modern HA patterns | Done, merged (2fac439, PR #15); CI green; on-device checks open | L, ~90-140k |
 | 11 Control entities + services | Done, merged (9e438de, PR #16); CI green; on-device checks open | M, ~50-80k |
 | 12 Status + connectivity entities | Done, merged (8ed3785, PR #17); CI green; on-device checks open | M, ~40-65k |
-| 13 Diagnostics + capture tools | Planned, not built | M, ~40-65k |
+| 13 Diagnostics + capture tools | In progress (draft PR) | M, ~40-65k |
 | 14 Protobuf decoder + last-prompt sensor | Planned, not built | M, ~50-85k |
 | 15 Do Not Disturb entities | On hold (needs DPS 157 captures + Phase 14) | M, ~40-70k |
 | 16 Cleaning events + history sensors | Planned, not built | M, ~40-65k |

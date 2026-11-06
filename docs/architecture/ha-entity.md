@@ -75,3 +75,8 @@ Verified on Dobby: `AggP` (STOP_GOHOME, method 15) stops a return to dock and le
 - `connected` reads `coordinator.connected` → `TuyaDevice.connected`. `TuyaDevice.connection_cb` (sync, exceptions logged and contained) fires on connect and disconnect; the coordinator points it at `async_update_listeners`, so a ping timeout turns the sensor off within one ping interval.
 - DeviceInfo: the MAC is already on the device via the vacuum entity (`connections`). The firmware version isn't stored at setup, so `sw_version` is omitted (no migration added, per plan).
 
+## Diagnostics and capture tools (Phase 13, 06/11/2026)
+- `diagnostics.py`: Download diagnostics. Redacts `access_token` (localKey), `password`, `username`, `client_id`, `mac` and the entry title. Per vacuum it adds model code and class, fault, error, feature names, command codes, protocol version and the raw DPS dict (so `157` and `159` are included). An unsupported model still appears, with its fault and without raw DPS.
+- `robovac.get_dps` (entity service on the vacuum, `SupportsResponse.ONLY`): forces a GET and returns `{"dps": {...}}`, optionally filtered by `codes`. Failures raise `HomeAssistantError`.
+- Capture mode: per-vacuum option (`capture_mode`, default off) stored in the vacuum's config data. `update_listener` applies it live (`LIVE_KEYS`, like the IP), so toggling never reloads. While on, `_parse` logs each DPS change at info as `capture <id> DPS <code>: old → new`, and `tuyalocalapi.VERBOSE` stays on while any vacuum is capturing. Shutdown turns it off. Protobuf-decoded text joins the log when Phase 14 lands.
+

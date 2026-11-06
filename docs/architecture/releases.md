@@ -12,3 +12,4 @@
 | v1.0.7 | eeaae48 (PR #4) | Transport/entity refactor, socket-drop CPU spin fix |
 | v1.0.8 | 1d54606 (PR #5) | Docs restructure (CLAUDE.md index + docs/plans); Phase 02 code review fixes #1-#7 |
 | v1.0.9 | 0a706c7 (PR #6) | Strictly increasing Tuya sequence numbers (fixes "Update taking over 10 seconds" after commands); phase 04-07 plans |
+| v1.0.10 | a585f72 (PR #7) | `vacuum.start` resumes a paused task (`AggO`) instead of sending start auto clean, which the L60 ignores while paused |

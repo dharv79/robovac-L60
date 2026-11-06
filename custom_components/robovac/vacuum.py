@@ -66,6 +66,7 @@ ATTR_MODE = "mode"
 
 MODE_MAPPING = {
     "AggO": "Resume",
+    "AggP": "Stop return to dock",
     "BBoCCAE=": "Start auto",
     "AggN": "Pause",
     "AggG": "Stop / Go to charge",
@@ -109,6 +110,7 @@ STATUS_MAPPING = {
 }
 
 PAUSED_STATES = ("Cleaning paused", "Cleaning room paused", "Cleaning spot paused")
+START_CONFIRM_TIMEOUT = 4.0
 
 ERROR_MAPPING = {
     "DAiI6suO9dXszgFSAA==": "no_error",
@@ -461,13 +463,44 @@ class RoboVacEntity(StateVacuumEntity):
         await self._async_set_mode("AggG")
 
     async def async_start(self, **kwargs):
-        """Start cleaning, or resume a paused task."""
-        # The L60 ignores "start auto clean" while a task is paused; it needs
-        # RESUME_TASK (method 14, "AggO"), as the Eufy app sends.
-        if self.tuya_state in PAUSED_STATES:
-            await self._async_set_mode("AggO")
-        else:
+        """Start cleaning, resuming a paused task or cancelling a return to dock first."""
+        # The L60 acks but ignores START_AUTO_CLEAN ("BBoCCAE=") while paused
+        # (needs RESUME_TASK "AggO") or returning to dock (needs STOP_GOHOME
+        # "AggP" first). Its GET reply has no status DPS, so after an HA restart
+        # the state can be unknown: then escalate until it reports cleaning.
+        # Runs in the background so the service call returns at once.
+        task = asyncio.create_task(self._async_start_sequence())
+        self._refresh_tasks.add(task)
+        task.add_done_callback(self._refresh_tasks.discard)
+
+    async def _async_wait_until_cleaning(self, timeout: float = START_CONFIRM_TIMEOUT) -> bool:
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        while loop.time() < deadline:
+            if self.activity == VacuumActivity.CLEANING:
+                return True
+            await asyncio.sleep(0.25)
+        return self.activity == VacuumActivity.CLEANING
+
+    async def _async_start_sequence(self) -> None:
+        # Each fallback runs only if the current state (None = unknown) allows it.
+        if self.tuya_state not in (*PAUSED_STATES, "Recharge"):
             await self._async_set_mode("BBoCCAE=")
+            if await self._async_wait_until_cleaning():
+                return
+        if self.tuya_state is None or self.tuya_state in PAUSED_STATES:
+            await self._async_set_mode("AggO")
+            if await self._async_wait_until_cleaning():
+                return
+        if self.tuya_state in (None, "Recharge"):
+            await self._async_set_mode("AggP")
+            await asyncio.sleep(1)
+            await self._async_set_mode("BBoCCAE=")
+            if await self._async_wait_until_cleaning():
+                return
+        _LOGGER.warning(
+            "%s did not start cleaning (state %s)", self.unique_id, self.tuya_state
+        )
 
     async def async_pause(self, **kwargs):
         """Pause cleaning."""

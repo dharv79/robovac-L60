@@ -10,7 +10,7 @@ Home Assistant integration for Eufy RoboVac (L60 focus). Active plan: review the
 | 01 Code review & audit | Done, merged (1d54606, PR #5) | S, ~25k actual |
 | 02 Apply review fixes | Done, merged (1d54606, PR #5); Boost IQ verified on-device, DND open (needs DPS 157 protobuf encoding). Follow-up sequence-number fix merged (0a706c7, PR #6), released v1.0.9. Start-while-paused resume fix merged (a585f72, PR #7), released v1.0.10. Start escalation for returning/unknown states merged (268423e, PR #8), released v1.0.11 | M, ~45k actual |
 | 03 Feature ideas (20) | Done, merged (1d54606, PR #5) | S, ~20k actual |
-| 04 Command sequencing fixes | In progress (built, PR pending; on-device checks open) | S, ~40k actual |
+| 04 Command sequencing fixes | Done, merged (cfe88d3, PR #9); on-device checks open | S, ~40k actual |
 | 05 Startup + connection resilience | Planned, not built | S, ~25-45k |
 | 06 State after HA restart | Planned, not built | S, ~25-45k |
 | 07 Tests + lint in CI | Planned, not built | L, ~95-145k |

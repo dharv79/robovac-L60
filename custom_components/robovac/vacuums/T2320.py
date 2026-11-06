@@ -1,4 +1,4 @@
-from .base import RoboVacEntityFeature, RobovacCommand
+from .base import RoboVacEntityFeature, RobovacCommand, ModeKey
 
 
 class T2320:
@@ -13,6 +13,15 @@ class T2320:
     #     | RoboVacEntityFeature.MAP
     #     | RoboVacEntityFeature.CONSUMABLES
     )
+    # DPS 152 values by semantic key (see docs/architecture/models.md).
+    mode_values = {
+        ModeKey.START_AUTO: "BBoCCAE=",
+        ModeKey.PAUSE: "AggN",
+        ModeKey.RESUME: "AggO",
+        ModeKey.STOP_RETURN: "AggP",
+        ModeKey.RETURN_HOME: "AggG",
+        ModeKey.STANDBY: "AA==",
+    }
     commands = {
         RobovacCommand.MODE: {  #works   (Start Auto and Return dock commands tested)
             "code": 152,

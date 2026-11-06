@@ -104,7 +104,7 @@ Find and fix security weaknesses in the integration, and in the repo's supply ch
   - [ ] An HA restart with debug logging on shows no localKey in `home-assistant.log`.
 
 ## Status
-In progress (PR open). On-device checks open.
+Done, merged (5b4a03b, PR #13); CI green (test + secrets). On-device checks open.
 
 ## Built (06/11/2026)
 - **Decisions (user, 06/11/2026):** stop storing the password, with a migration; document raw `send_command` only; add `SECURITY.md` using GitHub private vulnerability reporting.
@@ -125,7 +125,7 @@ In progress (PR open). On-device checks open.
   - Actions are SHA-pinned (checkout v4.4.0, setup-python v5.6.0).
   - Release job: `contents: write` only, with `env:` for expressions.
   - Dependabot for `github-actions`.
-- **Secret scan:** gitleaks found 3 false positives, now in `.gitleaksignore`. GitHub secret scanning is unavailable because the repo has no Advanced Security. No real secrets were found.
+- **Secret scan:** gitleaks found 3 false positives, now in `.gitleaksignore`. On the first CI run the fake `OTHER_KEY` in the new tests was flagged; it is now marked `# gitleaks:allow` inline, as is `TEST_KEY`. GitHub secret scanning is unavailable because the repo has no Advanced Security. No real secrets were found.
 - **Tests:** `tests/test_security.py` adds 32 tests. The config-flow test now asserts the password isn't stored. Full suite: 201 passed.
 - **Follow-ups found while building:**
   - `TuyaAPISession.acquire_session` calls a missing `self.getCountryCode` when `phoneCode` is empty. This is a correctness bug, not a security one, and is deferred.

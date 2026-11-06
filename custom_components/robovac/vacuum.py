@@ -50,7 +50,14 @@ from .errors import getErrorMessage
 from . import tuyalocalapi
 from .robovac import ModelNotSupportedException, RoboVac
 from .tuyalocalapi import InvalidKey, TuyaException
-from .vacuums.base import RoboVacEntityFeature, RobovacCommand
+from .vacuums.base import (
+    DEFAULT_MODE_VALUES,
+    ModeKey,
+    RoboVacEntityFeature,
+    RobovacCommand,
+    resolve_mode_labels,
+    resolve_mode_values,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -68,15 +75,6 @@ ATTR_BOOST_IQ = "boost_iq"
 ATTR_CONSUMABLES = "consumables"
 ATTR_MODE = "mode"
 ATTR_STATE_RESTORED = "state_restored"
-
-MODE_MAPPING = {
-    "AggO": "Resume",
-    "AggP": "Stop return to dock",
-    "BBoCCAE=": "Start auto",
-    "AggN": "Pause",
-    "AggG": "Stop / Go to charge",
-    "AA==": "Standby",
-}
 
 TUYA_STATUS_MAPPING = {
     "BgoAEAUyAA==": "AUTO",
@@ -211,11 +209,20 @@ class RoboVacEntity(StateVacuumEntity, RestoreEntity):
                 friendly_text(speed): speed for speed in self.vacuum.getFanSpeeds()
             }
             self._tuya_command_codes = self.vacuum.getCommandCodes()
+            self._mode_values = resolve_mode_values(self.vacuum.model_details)
+            self._mode_labels = resolve_mode_labels(self.vacuum.model_details)
+            self._status_values = {
+                **TUYA_STATUS_MAPPING,
+                **getattr(self.vacuum.model_details, "status_values", {}),
+            }
             self._attr_supported_features = self._build_supported_features()
         else:
             self._robovac_features = 0
             self.fan_speed_map = {}
             self._tuya_command_codes = {}
+            self._mode_values = dict(DEFAULT_MODE_VALUES)
+            self._mode_labels = {}
+            self._status_values = dict(TUYA_STATUS_MAPPING)
             self._attr_supported_features = VacuumEntityFeature.STATE
         self._attr_fan_speed_list = list(self.fan_speed_map)
 
@@ -436,14 +443,14 @@ class RoboVacEntity(StateVacuumEntity, RestoreEntity):
             self._battery_level_cache = None
 
         self.tuya_state = STATUS_MAPPING.get(
-            TUYA_STATUS_MAPPING.get(self._dps_value(RobovacCommand.STATUS))
+            self._status_values.get(self._dps_value(RobovacCommand.STATUS))
         )
         self.error_code = ERROR_MAPPING.get(
             self._dps_value(RobovacCommand.ERROR), "no_error"
         )
 
         raw_mode = self._dps_value(RobovacCommand.MODE)
-        self._mode = MODE_MAPPING.get(raw_mode, raw_mode)
+        self._mode = self._mode_labels.get(raw_mode, raw_mode)
 
         raw_fan = self._dps_value(RobovacCommand.FAN_SPEED, "")
         self._attr_fan_speed = friendly_text(raw_fan) if raw_fan else None
@@ -535,13 +542,13 @@ class RoboVacEntity(StateVacuumEntity, RestoreEntity):
     async def async_return_to_base(self, **kwargs):
         """Return to dock."""
         _LOGGER.debug("Return home pressed")
-        await self._async_set_mode("AggG")
+        await self._async_set_mode(self._mode_values[ModeKey.RETURN_HOME])
 
     async def async_start(self, **kwargs):
         """Start cleaning, resuming a paused task or cancelling a return to dock first."""
-        # The L60 acks but ignores START_AUTO_CLEAN ("BBoCCAE=") while paused
-        # (needs RESUME_TASK "AggO") or returning to dock (needs STOP_GOHOME
-        # "AggP" first). Its GET reply has no status DPS, so after an HA restart
+        # The L60 acks but ignores START_AUTO_CLEAN (start_auto) while paused
+        # (needs RESUME_TASK, resume) or returning to dock (needs STOP_GOHOME,
+        # stop_return, first). Its GET reply has no status DPS, so after an HA restart
         # the state can be unknown: then escalate until it reports cleaning.
         # Runs in the background so the service call returns at once; any other
         # mode command cancels it (_async_set_mode).
@@ -560,17 +567,17 @@ class RoboVacEntity(StateVacuumEntity, RestoreEntity):
     async def _async_start_sequence(self) -> None:
         # Each fallback runs only if the current state (None = unknown) allows it.
         if self.tuya_state not in (*PAUSED_STATES, "Recharge"):
-            await self._async_set_mode("BBoCCAE=")
+            await self._async_set_mode(self._mode_values[ModeKey.START_AUTO])
             if await self._async_wait_until_cleaning():
                 return
         if self.tuya_state is None or self.tuya_state in PAUSED_STATES:
-            await self._async_set_mode("AggO")
+            await self._async_set_mode(self._mode_values[ModeKey.RESUME])
             if await self._async_wait_until_cleaning():
                 return
         if self.tuya_state in (None, "Recharge"):
-            await self._async_set_mode("AggP")
+            await self._async_set_mode(self._mode_values[ModeKey.STOP_RETURN])
             await asyncio.sleep(1)
-            await self._async_set_mode("BBoCCAE=")
+            await self._async_set_mode(self._mode_values[ModeKey.START_AUTO])
             if await self._async_wait_until_cleaning():
                 return
         _LOGGER.warning(
@@ -579,7 +586,7 @@ class RoboVacEntity(StateVacuumEntity, RestoreEntity):
 
     async def async_pause(self, **kwargs):
         """Pause cleaning."""
-        await self._async_set_mode("AggN")
+        await self._async_set_mode(self._mode_values[ModeKey.PAUSE])
 
     async def async_stop(self, **kwargs):
         """Stop cleaning."""
@@ -626,7 +633,7 @@ class RoboVacEntity(StateVacuumEntity, RestoreEntity):
             await self._async_set_mode("Edge" if command == "edgeClean" else "SmallRoom")
             return
         elif command == "autoClean":
-            await self._async_set_mode("BBoCCAE=")
+            await self._async_set_mode(self._mode_values[ModeKey.START_AUTO])
             return
         elif command in ("autoReturn", "doNotDisturb", "boostIQ"):
             feature, robovac_command, attr = {

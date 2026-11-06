@@ -42,7 +42,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 
-from .const import CONF_AUTODISCOVERY, CONF_VACS, CONFIG_VERSION, DOMAIN
+from .const import CONF_AUTODISCOVERY, CONF_CAPTURE, CONF_VACS, CONFIG_VERSION, DOMAIN
 from .countries import (
     get_phone_code_by_country_code,
     get_phone_code_by_region,
@@ -279,6 +279,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 CONF_IP_ADDRESS, ""
             )
 
+            updated_vacuums[self.selected_vacuum][CONF_CAPTURE] = user_input.get(
+                CONF_CAPTURE, False
+            )
+
             updated_data = dict(self.config_entry.data)
             updated_data[CONF_VACS] = updated_vacuums
 
@@ -299,6 +303,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     CONF_IP_ADDRESS,
                     default=vacuums[self.selected_vacuum].get(CONF_IP_ADDRESS, ""),
                 ): str,
+                vol.Required(
+                    CONF_CAPTURE,
+                    default=vacuums[self.selected_vacuum].get(CONF_CAPTURE, False),
+                ): bool,
             }
         )
 

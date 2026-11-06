@@ -41,7 +41,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
 from . import tuyalocalapi
-from .const import DOMAIN, PING_RATE, REFRESH_RATE, TIMEOUT
+from .const import CONF_CAPTURE, DOMAIN, PING_RATE, REFRESH_RATE, TIMEOUT
 from .robovac import ModelNotSupportedException, RoboVac
 from .tuyalocalapi import InvalidKey, TuyaException
 from .vacuums.base import (
@@ -129,6 +129,10 @@ PASSTHROUGH_ATTRIBUTES = (
 
 NO_ERROR_CODES = (0, "no_error", None)
 
+# Vacuums in capture mode. Transport VERBOSE logging is module-wide, so it stays
+# on while any vacuum is capturing.
+_CAPTURING: set[str] = set()
+
 
 
 
@@ -199,6 +203,8 @@ class RoboVacCoordinator(DataUpdateCoordinator[RoboVacData]):
         self._unsub_watchdog = None
         self._last_data = 0.0
         self.last_seen: datetime | None = None  # last push or GET reply
+        self.capture = False
+        self._capture_dps: dict[str, Any] = {}
         self.vacuum: RoboVac | None = self._create_device()
 
         if self.vacuum is not None:
@@ -224,6 +230,32 @@ class RoboVacCoordinator(DataUpdateCoordinator[RoboVacData]):
             self.mode_labels = {}
             self.declared_modes = frozenset()
             self.status_values = dict(TUYA_STATUS_MAPPING)
+        self.async_set_capture(bool(item.get(CONF_CAPTURE)))
+
+    # --- capture mode ---------------------------------------------------
+
+    def async_set_capture(self, enabled: bool) -> None:
+        """Log every DPS change at info and turn on transport verbose logging."""
+        if enabled == self.capture:
+            return
+        self.capture = enabled
+        self.item = {**self.item, CONF_CAPTURE: enabled}
+        self._capture_dps = dict((self.vacuum._dps if self.vacuum else None) or {})
+        if enabled:
+            _CAPTURING.add(self.vacuum_id)
+        else:
+            _CAPTURING.discard(self.vacuum_id)
+        tuyalocalapi.VERBOSE = bool(_CAPTURING)
+        _LOGGER.info(
+            "Capture mode %s for %s", "on" if enabled else "off", self.vacuum_id
+        )
+
+    def _log_capture(self, dps: dict[str, Any]) -> None:
+        for code in sorted(dps, key=str):
+            old = self._capture_dps.get(code)
+            if code not in self._capture_dps or old != dps[code]:
+                _LOGGER.info("capture %s DPS %s: %s → %s", self.vacuum_id, code, old, dps[code])
+        self._capture_dps = dict(dps)
 
     # --- device ---------------------------------------------------------
 
@@ -283,6 +315,7 @@ class RoboVacCoordinator(DataUpdateCoordinator[RoboVacData]):
         if self._unsub_watchdog is not None:
             self._unsub_watchdog()
             self._unsub_watchdog = None
+        self.async_set_capture(False)
         if self._warmup_task is not None:
             self._warmup_task.cancel()
         if self._refresh_task is not None:
@@ -439,6 +472,8 @@ class RoboVacCoordinator(DataUpdateCoordinator[RoboVacData]):
             )
             return None
         dps = dict(dps)
+        if self.capture:
+            self._log_capture(dps)
         if tuyalocalapi.VERBOSE:
             _LOGGER.debug("tuyastatus %s", dps)
 

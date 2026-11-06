@@ -21,6 +21,8 @@ import asyncio
 import logging
 from typing import Any
 
+import voluptuous as vol
+
 from homeassistant.components.vacuum import (
     StateVacuumEntity,
     VacuumActivity,
@@ -28,7 +30,9 @@ from homeassistant.components.vacuum import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_DESCRIPTION, CONF_ID, CONF_MAC, CONF_NAME
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, SupportsResponse
+from homeassistant.exceptions import HomeAssistantError
+import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC
 from homeassistant.helpers import entity_platform
 from homeassistant.helpers.entity import DeviceInfo
@@ -69,6 +73,7 @@ START_CONFIRM_TIMEOUT = 4.0
 NEW_CLEAN_SETTLE_TIMEOUT = 4.0
 SERVICE_START_NEW_CLEAN = "start_new_clean"
 SERVICE_AUTO_CLEAN = "auto_clean"
+SERVICE_GET_DPS = "get_dps"
 
 
 
@@ -87,6 +92,12 @@ async def async_setup_entry(
     )
     platform.async_register_entity_service(
         SERVICE_AUTO_CLEAN, None, "async_auto_clean"
+    )
+    platform.async_register_entity_service(
+        SERVICE_GET_DPS,
+        {vol.Optional("codes"): vol.All(cv.ensure_list, [vol.Coerce(str)])},
+        "async_get_dps",
+        supports_response=SupportsResponse.ONLY,
     )
 
 
@@ -314,6 +325,19 @@ class RoboVacEntity(CoordinatorEntity[RoboVacCoordinator], StateVacuumEntity, Re
         _LOGGER.warning(
             "%s did not start cleaning (state %s)", self.unique_id, self.tuya_state
         )
+
+    async def async_get_dps(self, codes: list[str] | None = None) -> dict[str, Any]:
+        """robovac.get_dps: force a GET and return the raw DPS, optionally filtered."""
+        if self.vacuum is None:
+            raise HomeAssistantError("This vacuum is not supported or not configured")
+        try:
+            await self.coordinator.async_forced_refresh()
+        except TuyaException as err:
+            raise HomeAssistantError(f"Could not read the vacuum: {err}") from err
+        dps = {str(code): value for code, value in self.vacuum._dps.items()}
+        if codes:
+            dps = {code: dps[code] for code in codes if code in dps}
+        return {"dps": dps}
 
     async def async_auto_clean(self) -> None:
         """robovac.auto_clean: send the model's start-auto mode directly."""

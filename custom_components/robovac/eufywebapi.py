@@ -30,7 +30,7 @@ class EufyLogon:
             "password": self.password,
         }
 
-        return requests.post(login_url, json=login_auth, headers=eufyheaders)
+        return requests.post(login_url, json=login_auth, headers=eufyheaders, timeout=10)
 
     def get_user_settings(self, url, userid, token):
         setting_url = url + "/v1/user/setting"
@@ -42,4 +42,4 @@ class EufyLogon:
         device_url = url + "/v1/device/v2"
         eufyheaders["token"] = token
         eufyheaders["id"] = userid
-        return requests.request("GET", device_url, headers=eufyheaders)
+        return requests.request("GET", device_url, headers=eufyheaders, timeout=10)

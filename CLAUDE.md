@@ -51,7 +51,6 @@ Home Assistant custom integration (HACS) for Eufy RoboVac vacuums, focused on th
 ## Conventions and gotchas
 
 - `RobovacCommand` is a `StrEnum`; key both model `commands` and `_tuya_command_codes` with it.
-- Several `async_send_command` names use hard-coded L60 DPS codes — wrong for other models.
 - Entity commands go through `_async_send_dps(*dps_dicts)` (one follow-up refresh).
 - Add raw-value attributes to `PASSTHROUGH_ATTRIBUTES`, not new properties; they need both a `robovac_features` flag and a mapped DPS code.
 - `localtuya` may hold UDP 6666/6667 and break autodiscovery.

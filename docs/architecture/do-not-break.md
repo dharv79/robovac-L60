@@ -7,6 +7,6 @@ CLAUDE.md keeps the one-line rule; the why lives here.
 3. **DPS codes are strings at runtime** (`robovac.getCommandCodes`, `vacuum._tuya_command_codes`). The device returns string keys; an int key silently never matches.
 4. **Battery stays off the vacuum entity** (`_battery_level_cache` → `sensor.py`). Setting battery on the vacuum entity triggers HA deprecation warnings.
 5. **`activity` matches human-readable status strings** (`vacuum.py`, via `STATUS_MAPPING`), not internal keys. Changing the mapping text changes activity detection.
-6. **Hard-coded DPS in `async_send_command` are L60-only.** Don't rely on them for other models; route new commands through `_tuya_command_codes`.
-7. **`async_disable` must cancel all three loop tasks** (`process_queue`, `async_ping`, `_async_handle_message`). A leaked task keeps a dead device reconnecting after unload.
-8. **Registry key = class name = first 5 chars of model code** (`vacuums/__init__.py`, `ROBOVAC_MODELS`).
+6. **`async_disable` must cancel all three loop tasks** (`process_queue`, `async_ping`, `_async_handle_message`). A leaked task keeps a dead device reconnecting after unload.
+7. **Registry key = class name = first 5 chars of model code** (`vacuums/__init__.py`, `ROBOVAC_MODELS`).
+8. **`async_send_command`'s named branches (`edgeClean`, `autoReturn`, `doNotDisturb`, `boostIQ`, ...) look up DPS codes from `_tuya_command_codes` and gate on `_supports(...)`** (`vacuum.py`, fixed 06/11/2026 — see Phase 02). Don't reintroduce hard-coded per-model DPS numbers here; a model without the code/feature should no-op, not silently write to the wrong index.

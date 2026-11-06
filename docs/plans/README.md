@@ -8,7 +8,7 @@ Home Assistant integration for Eufy RoboVac (L60 focus). Active plan: review the
 | Phase | Status | Size / tokens |
 |---|---|---|
 | 01 Code review & audit | In progress (findings written, not merged) | S, ~25k actual |
-| 02 Apply review fixes | Planned, not built | M, ~40-70k |
+| 02 Apply review fixes | In progress (code changes landed, on-device verification of finding #1 still open) | M, ~45k actual |
 | 03 Feature ideas (20) | In progress (ideas written, not merged) | S, ~20k actual |
 
 ## Decisions locked in with the user (do not re-litigate)

@@ -33,7 +33,13 @@ from .coordinator import RoboVacCoordinator
 from .tuyalocalapi import async_probe_device
 from .tuyalocaldiscovery import TuyaLocalDiscovery
 
-PLATFORMS = [Platform.VACUUM, Platform.SENSOR]
+PLATFORMS = [
+    Platform.VACUUM,
+    Platform.SENSOR,
+    Platform.SWITCH,
+    Platform.BUTTON,
+    Platform.SELECT,
+]
 _LOGGER = logging.getLogger(__name__)
 
 # Discovery broadcasts can be forged, so an IP change is applied only after the

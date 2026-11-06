@@ -25,6 +25,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
+from collections.abc import Callable
 
 from homeassistant.components.vacuum import VacuumActivity
 from homeassistant.config_entries import ConfigEntry
@@ -187,6 +188,10 @@ class RoboVacCoordinator(DataUpdateCoordinator[RoboVacData]):
         self.cleaning = asyncio.Event()
         self._unavailable_logged = False
         self._warmup_task: asyncio.Task | None = None
+        self._refresh_task: asyncio.Task | None = None
+        # Set by the vacuum entity: cancels its start sequence when another
+        # entity (button, service) writes a mode command.
+        self.cancel_start: Callable[[], None] | None = None
         self._unsub_watchdog = None
         self._last_data = 0.0
         self.vacuum: RoboVac | None = self._create_device()
@@ -200,6 +205,8 @@ class RoboVacCoordinator(DataUpdateCoordinator[RoboVacData]):
             self.command_codes = self.vacuum.getCommandCodes()
             self.mode_values = resolve_mode_values(details)
             self.mode_labels = resolve_mode_labels(details)
+            # Mode keys the model file declares itself (not shared defaults).
+            self.declared_modes = frozenset(getattr(details, "mode_values", {}))
             self.status_values = {
                 **TUYA_STATUS_MAPPING,
                 **getattr(details, "status_values", {}),
@@ -210,6 +217,7 @@ class RoboVacCoordinator(DataUpdateCoordinator[RoboVacData]):
             self.command_codes = {}
             self.mode_values = dict(DEFAULT_MODE_VALUES)
             self.mode_labels = {}
+            self.declared_modes = frozenset()
             self.status_values = dict(TUYA_STATUS_MAPPING)
 
     # --- device ---------------------------------------------------------
@@ -261,6 +269,8 @@ class RoboVacCoordinator(DataUpdateCoordinator[RoboVacData]):
             self._unsub_watchdog = None
         if self._warmup_task is not None:
             self._warmup_task.cancel()
+        if self._refresh_task is not None:
+            self._refresh_task.cancel()
         if self.vacuum is not None:
             await self.vacuum.async_disable()
 
@@ -364,6 +374,31 @@ class RoboVacCoordinator(DataUpdateCoordinator[RoboVacData]):
             return
         await self.vacuum.async_get()
         self.update_from_device()
+
+    async def async_send_dps(
+        self, *dps_updates: dict[str, Any], supersede_start: bool = False
+    ) -> None:
+        """Write DPS values, then refresh state once for the whole burst.
+
+        supersede_start: a mode command that cancels a running start sequence.
+        """
+        if self.vacuum is None:
+            return
+        if supersede_start and self.cancel_start is not None:
+            self.cancel_start()
+        for dps in dps_updates:
+            await self.vacuum.async_set(dps)
+        if self._refresh_task is None or self._refresh_task.done():
+            self._refresh_task = self.hass.async_create_background_task(
+                self._async_refresh_after_command(),
+                name=f"robovac refresh {self.vacuum_id}",
+            )
+
+    async def _async_refresh_after_command(self) -> None:
+        try:
+            await self.async_forced_refresh()
+        except TuyaException as err:
+            _LOGGER.debug("Refresh after command failed for %s: %s", self.vacuum_id, err)
 
     async def pushed_update_handler(self) -> None:
         """Handle a push from the device."""

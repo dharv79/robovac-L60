@@ -30,6 +30,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_DESCRIPTION, CONF_ID, CONF_MAC, CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC
+from homeassistant.helpers import entity_platform
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -65,6 +66,9 @@ ATTR_MODE = "mode"
 ATTR_STATE_RESTORED = "state_restored"
 
 START_CONFIRM_TIMEOUT = 4.0
+NEW_CLEAN_SETTLE_TIMEOUT = 4.0
+SERVICE_START_NEW_CLEAN = "start_new_clean"
+SERVICE_AUTO_CLEAN = "auto_clean"
 
 
 
@@ -76,6 +80,13 @@ async def async_setup_entry(
     """Set up Robovac entities from a config entry."""
     async_add_entities(
         RoboVacEntity(coordinator) for coordinator in config_entry.runtime_data.values()
+    )
+    platform = entity_platform.async_get_current_platform()
+    platform.async_register_entity_service(
+        SERVICE_START_NEW_CLEAN, None, "async_start_new_clean"
+    )
+    platform.async_register_entity_service(
+        SERVICE_AUTO_CLEAN, None, "async_auto_clean"
     )
 
 
@@ -96,6 +107,7 @@ class RoboVacEntity(CoordinatorEntity[RoboVacCoordinator], StateVacuumEntity, Re
         self._restored_activity: VacuumActivity | None = None
         self._refresh_task: asyncio.Task | None = None
         self._start_task: asyncio.Task | None = None
+        coordinator.cancel_start = self._cancel_start
 
         if coordinator.vacuum is not None:
             self._attr_supported_features = self._build_supported_features()
@@ -302,6 +314,32 @@ class RoboVacEntity(CoordinatorEntity[RoboVacCoordinator], StateVacuumEntity, Re
         _LOGGER.warning(
             "%s did not start cleaning (state %s)", self.unique_id, self.tuya_state
         )
+
+    async def async_auto_clean(self) -> None:
+        """robovac.auto_clean: send the model's start-auto mode directly."""
+        await self._async_set_mode(self.coordinator.mode_values[ModeKey.START_AUTO])
+
+    async def async_start_new_clean(self) -> None:
+        """robovac.start_new_clean: drop a paused task and start a fresh clean."""
+        if self.vacuum is None:
+            return
+        self._cancel_start()
+        self._start_task = asyncio.create_task(self._async_new_clean_sequence())
+
+    async def _async_new_clean_sequence(self) -> None:
+        await self._async_set_mode(self.coordinator.mode_values[ModeKey.STOP_RETURN])
+        # Wait for the old task to leave the paused state, then start afresh.
+        try:
+            async with asyncio.timeout(NEW_CLEAN_SETTLE_TIMEOUT):
+                while self.tuya_state in PAUSED_STATES:
+                    await asyncio.sleep(0.2)
+        except TimeoutError:
+            _LOGGER.debug("%s still paused after stop; starting anyway", self.unique_id)
+        await self._async_set_mode(self.coordinator.mode_values[ModeKey.START_AUTO])
+        if not await self._async_wait_until_cleaning():
+            _LOGGER.warning(
+                "%s did not start a new clean (state %s)", self.unique_id, self.tuya_state
+            )
 
     async def async_pause(self, **kwargs):
         """Pause cleaning."""

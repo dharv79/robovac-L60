@@ -12,7 +12,7 @@ Guidance for Claude Code when working in this repository.
 
 ## What This Is
 
-Home Assistant custom integration (HACS) for Eufy RoboVac vacuums, focused on the L60. Local control over the Tuya local protocol (TCP 6668, AES); Eufy/Tuya cloud is used only at setup to fetch the device `localKey`. Python, async, no dependencies beyond HA. Registers `vacuum` and `sensor` (battery %) platforms per vacuum.
+Home Assistant custom integration (HACS) for Eufy RoboVac vacuums, focused on the L60. Local control over the Tuya local protocol (TCP 6668, AES); Eufy/Tuya cloud is used only at setup to fetch the device `localKey`. Python, async, no dependencies beyond HA. Registers `vacuum`, `sensor`, `switch`, `button` and `select` platforms per vacuum.
 
 ## Code map (`custom_components/robovac/`)
 
@@ -23,6 +23,7 @@ Home Assistant custom integration (HACS) for Eufy RoboVac vacuums, focused on th
 - `vacuum.py` — `RoboVacEntity`: state decoding, commands, polling + push.
 - `coordinator.py` — `RoboVacCoordinator` per vacuum: owns the `RoboVac` device, parses state once into `RoboVacData`, publishes pushes; fallback poll + watchdog. Also the status/error mappings.
 - `sensor.py` — battery sensor (a `CoordinatorEntity`) reading `coordinator.data.battery`.
+- `entity.py`, `switch.py`, `button.py`, `select.py` — Boost IQ switch, stop-return and locate buttons, suction select (`CoordinatorEntity`s); writes via `coordinator.async_send_dps`. Services in `services.yaml` (`start_new_clean`, `auto_clean`).
 - `config_flow.py` — credential flow + per-vacuum options (IP, autodiscovery).
 - `__init__.py` — starts discovery; `entry.runtime_data` = `{vac_id: coordinator}`; an IP change reconnects only that vacuum (no reload).
 - `vacuums/T*.py` + `vacuums/__init__.py` — per-model DPS maps and `ROBOVAC_MODELS` registry.

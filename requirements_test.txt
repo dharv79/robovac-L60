@@ -1,0 +1,4 @@
+# Test and lint tooling for CI and local runs (Phase 07).
+# pytest-homeassistant-custom-component pins a matching homeassistant.
+pytest-homeassistant-custom-component==0.13.316
+ruff==0.16.9

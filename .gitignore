@@ -10,3 +10,8 @@ __pycache__/
 # Claude Code local settings (contains secrets)
 .claude/
 
+
+# Local tooling caches
+.ruff_cache/
+.pytest_cache/
+.venv/

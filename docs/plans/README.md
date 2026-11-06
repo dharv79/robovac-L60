@@ -12,8 +12,8 @@ Home Assistant integration for Eufy RoboVac (L60 focus). Active plan: review the
 | 03 Feature ideas (20) | Done, merged (1d54606, PR #5) | S, ~20k actual |
 | 04 Command sequencing fixes | Done, merged (cfe88d3, PR #9); on-device checks open | S, ~40k actual |
 | 05 Startup + connection resilience | Done, merged (0641822, PR #10); on-device checks open | S, ~35k actual |
-| 06 State after HA restart | In progress (PR pending) | S, ~30k actual |
-| 07 Tests + lint in CI | Planned, not built | L, ~95-145k |
+| 06 State after HA restart | Done, merged (38ab805, PR #11); on-device checks open | S, ~30k actual |
+| 07 Tests + lint in CI | In progress (PR pending) | M, ~60k actual (est. L) |
 | 08 Vulnerability + security sweep | Planned, not built | M, ~50-85k |
 | 09 Per-model command data | Planned, not built | M, ~40-70k |
 | 10 Shared coordinator + modern HA patterns | Planned, not built | L, ~90-140k |

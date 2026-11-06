@@ -47,7 +47,7 @@ On-device checks, still open. These decide whether UPDATEDPS stays:
 - [ ] Record the result in `docs/architecture/transport.md`. If UPDATEDPS does nothing, try the DP_QUERY variant or remove the T2267 flag.
 
 ## Status
-Done; PR pending.
+Done, merged (38ab805, PR #11). On-device checks open.
 
 ## Built (06/11/2026)
 - Code and docs are as listed above.

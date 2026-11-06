@@ -34,7 +34,7 @@ Home Assistant custom integration (HACS) for Eufy RoboVac vacuums, focused on th
 | Models | `docs/architecture/models.md` | Model file format, DPS ranges, adding a new model |
 | HA entity | `docs/architecture/ha-entity.md` | Status mapping, polling/push, commands, sensor, config flow |
 | Do-not-break | `docs/architecture/do-not-break.md` | Reasoning behind each rule below |
-| Testing | `docs/architecture/testing.md` | Manual HA testing, syntax check, test file list |
+| Testing | `docs/architecture/testing.md` | CI, running pytest/ruff locally, test map, manual HA testing |
 | Releases | `docs/architecture/releases.md` | Release-branch workflow, version history |
 | Plans | `docs/plans/README.md` | Phase status, locked decisions, process |
 
@@ -58,7 +58,9 @@ Home Assistant custom integration (HACS) for Eufy RoboVac vacuums, focused on th
 
 ## Run / test
 
-No test suite, linter or build. Copy `custom_components/robovac/` into an HA instance and restart. Syntax check: `python -m py_compile custom_components/robovac/<file>.py`.
+- Tests: `pip install -r requirements_test.txt` (Python 3.13), then `ruff check custom_components tests` and `pytest`. CI (`.github/workflows/ci.yml`) runs the same on every PR. See `docs/architecture/testing.md` for the test map; add new tests there.
+- On-device: copy `custom_components/robovac/` into an HA instance and restart.
+- New test files get the same Apache 2.0 header.
 
 ## Code Output & Efficiency Directives
 

@@ -1,4 +1,4 @@
-# Phase 21 — README command reference and manifest housekeeping
+# Phase 22 — README command reference and manifest housekeeping
 
 ## Scope
 From the 06/11/2026 brainstorm (improvements: README L60 command reference, manifest version and owner).

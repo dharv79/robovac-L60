@@ -15,8 +15,8 @@ Home Assistant integration for Eufy RoboVac (L60 focus). Active plan: review the
 | 06 State after HA restart | Done, merged (38ab805, PR #11); on-device checks open | S, ~30k actual |
 | 07 Tests + lint in CI | Done, merged (973920f, PR #12); CI green | M, ~60k actual (est. L) |
 | 08 Vulnerability + security sweep | Done, merged (5b4a03b, PR #13); CI green; on-device checks open | M, ~70k actual |
-| 09 Per-model command data | Built, PR pending | M, ~40-70k |
-| 10 Shared coordinator + modern HA patterns | Planned, not built | L, ~90-140k |
+| 09 Per-model command data | Done, merged (2a838be, PR #14); on-device check open | M, ~40-70k |
+| 10 Shared coordinator + modern HA patterns | Built, PR pending | L, ~90-140k |
 | 11 Control entities + services | Planned, not built | M, ~50-80k |
 | 12 Status + connectivity entities | Planned, not built | M, ~40-65k |
 | 13 Diagnostics + capture tools | Planned, not built | M, ~40-65k |
@@ -24,17 +24,19 @@ Home Assistant integration for Eufy RoboVac (L60 focus). Active plan: review the
 | 15 Do Not Disturb entities | On hold (needs DPS 157 captures + Phase 14) | M, ~40-70k |
 | 16 Cleaning events + history sensors | Planned, not built | M, ~40-65k |
 | 17 Device triggers + blueprints | Planned, not built | M, ~40-65k |
-| 18 Reauth / reconfigure + IP test | Planned, not built | M, ~55-85k |
-| 19 "New RoboVac found" setup prompt | Planned, not built | M, ~45-75k |
-| 20 Type hints + type checking | Planned, not built | M, ~50-85k |
-| 21 README command reference + manifest housekeeping | Planned, not built (manifest part needs user OK) | XS, ~10-20k |
+| 18 Modern L60 dashboard (Lovelace YAML, core cards) | Planned, not built | M, ~40-65k |
+| 19 Reauth / reconfigure + IP test | Planned, not built | M, ~55-85k |
+| 20 "New RoboVac found" setup prompt | Planned, not built | M, ~45-75k |
+| 21 Type hints + type checking | Planned, not built | M, ~50-85k |
+| 22 README command reference + manifest housekeeping | Planned, not built (manifest part needs user OK) | XS, ~10-20k |
 
-Phases are numbered in build order (renumbered 06/11/2026: old 04 → 10, 05 → 12, 06 → 17; 07 unchanged. Renumbered again 06/11/2026 when the security sweep was inserted at 08: old 08-20 → 09-21). Order rationale:
+Phases are numbered in build order (renumbered 06/11/2026: old 04 → 10, 05 → 12, 06 → 17; 07 unchanged. Renumbered again 06/11/2026 when the security sweep was inserted at 08: old 08-20 → 09-21). Dashboard inserted at 18 (06/11/2026): old 18-21 → 19-22). Order rationale:
 - Bug fixes and robustness first (04-06).
 - Then tests (07), then the security sweep (08), so its scanners run in CI and gate every later phase, before the refactors (09-10).
 - New entities (11-17) come after the coordinator, so they're built on it once.
 - The capture tools (13) come before the decoder and DND (14-15).
-- Type checking (20) comes late, so it covers the final code shape.
+- The dashboard (18) comes after the entities it displays (11-17).
+- Type checking (21) comes late, so it covers the final code shape.
 
 ## Decisions locked in with the user (do not re-litigate)
 - Releases go through the `release/vX.Y.Z` branch workflow; version and target commit are confirmed with the user first.

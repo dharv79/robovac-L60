@@ -29,7 +29,7 @@ Move the L60 DPS 152 mode strings out of `vacuum.py` into the model files, under
 - [x] CI green, including the new tests; `docs/architecture/models.md` documents the new keys.
 
 ## Status
-Built (06/11/2026). On-device check pending.
+Done, merged (2a838be, PR #14); CI green. On-device check pending.
 
 ## Built (06/11/2026)
 - 247 tests pass; ruff clean.

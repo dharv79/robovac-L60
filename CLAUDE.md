@@ -21,9 +21,10 @@ Home Assistant custom integration (HACS) for Eufy RoboVac vacuums, focused on th
 - `robovac.py` — `RoboVac(TuyaDevice)`: model validation, command/fan-speed/feature helpers.
 - `eufywebapi.py` / `tuyawebapi.py` — cloud login at config-flow time only.
 - `vacuum.py` — `RoboVacEntity`: state decoding, commands, polling + push.
-- `sensor.py` — battery sensor reading the vacuum entity's `_battery_level_cache`.
+- `coordinator.py` — `RoboVacCoordinator` per vacuum: owns the `RoboVac` device, parses state once into `RoboVacData`, publishes pushes; fallback poll + watchdog. Also the status/error mappings.
+- `sensor.py` — battery sensor (a `CoordinatorEntity`) reading `coordinator.data.battery`.
 - `config_flow.py` — credential flow + per-vacuum options (IP, autodiscovery).
-- `__init__.py` — starts discovery; reloads entry on IP change.
+- `__init__.py` — starts discovery; `entry.runtime_data` = `{vac_id: coordinator}`; an IP change reconnects only that vacuum (no reload).
 - `vacuums/T*.py` + `vacuums/__init__.py` — per-model DPS maps and `ROBOVAC_MODELS` registry.
 
 ## Topic docs
@@ -44,7 +45,7 @@ Home Assistant custom integration (HACS) for Eufy RoboVac vacuums, focused on th
 1. On socket EOF/reset, disconnect — never retry the read (`tuyalocalapi._async_handle_message`).
 2. Model files never import `homeassistant`; HA features derive from `commands` (`RoboVacEntity._build_supported_features`).
 3. DPS codes are `str` at runtime (`getCommandCodes`, `_tuya_command_codes`); always `str(dps_code)` in payloads.
-4. Battery lives in `_battery_level_cache` / `sensor.py`, never on the vacuum entity.
+4. Battery lives in `coordinator.data.battery` / `sensor.py`, never on the vacuum entity.
 5. `activity` matches `STATUS_MAPPING` human-readable strings, not internal keys (`vacuum.py`).
 6. `async_disable` cancels all three loop tasks (`process_queue`, `async_ping`, `_async_handle_message`).
 7. `ROBOVAC_MODELS` key = class name = first 5 chars of the model code.

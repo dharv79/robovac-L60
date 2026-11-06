@@ -34,7 +34,10 @@ Ship a ready-to-use, modern Lovelace dashboard for the L60, built from the entit
 - [ ] CI green, including the YAML test.
 
 ## Status
-Planned, not built. Depends on Phases 11, 12, 13, 14, 16 (15 optional).
+In progress (draft PR). Depends on Phases 11, 12, 13, 14, 16 (15 optional).
 
 ## Size
 M, ~40-65k.
+
+## Built (06/11/2026)
+`docs/dashboards/robovac-l60.yaml` (one sections view; controls, status, history, diagnostics), `docs/dashboards/README.md`, root README section, entity list in `ha-entity.md`, `tests/test_dashboard.py`. Deviations: no screenshot (needs a real HA); consumables block is commented out because the L60 reports them encrypted; DND block commented out (Phase 15 on hold). Open: import and visual check on a real HA (light/dark, phone width), then add a screenshot.

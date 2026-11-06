@@ -92,3 +92,7 @@ Verified on Dobby: `AggP` (STOP_GOHOME, method 15) stops a return to dock and le
 ## Device triggers and blueprints (Phase 17, 06/11/2026)
 - `device_trigger.py`: `cleaning_started`, `cleaning_finished` and `error` attach an event trigger on the Phase 16 events, filtered by `device_id`; `docked` is a state trigger (to `on`) on the device's docked binary sensor, found by its `_docked` unique_id. Only devices with a robovac entity get triggers. Labels are in `strings.json` under `device_automation.trigger_type`.
 - `blueprints/automation/robovac/` (repo root; HACS doesn't install them, so the README has import buttons): `notify_on_error` (device trigger `error`, runs the chosen action), `clean_when_away` (`vacuum.start` once every chosen person has been away, `vacuum.return_to_base` when one returns), `dock_at_time` (`vacuum.return_to_base` at a time if still cleaning). Only standard `vacuum.*` services, so any model works.
+
+## Dashboard (Phase 18, 06/11/2026)
+`docs/dashboards/robovac-l60.yaml` references these entity IDs (slug `dobby` stands for the vacuum's slug); renaming any of them means updating the file. `tests/test_dashboard.py` fails if it drifts.
+`vacuum.<slug>`, `select.<slug>_suction_level`, `switch.<slug>_boost_iq`, `button.<slug>_stop_return_to_dock`, `button.<slug>_locate`, `sensor.<slug>_battery`, `_status`, `_last_seen`, `_last_cleaned`, `_cleaning_count`, `_last_clean_duration`, `_last_prompt`, `binary_sensor.<slug>_docked`, `_charging`, `_connected`. Consumables and Do Not Disturb are commented-out optional blocks.

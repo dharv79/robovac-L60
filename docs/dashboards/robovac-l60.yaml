@@ -1,0 +1,119 @@
+# RoboVac L60 dashboard: one view, sections layout, core cards only.
+# Import: Settings > Dashboards > add a dashboard > open it > pencil >
+# three dots > Raw configuration editor > paste this file.
+# Entity IDs use the slug "dobby" (vacuum.dobby, sensor.dobby_battery ...).
+# Find-and-replace "dobby" with your vacuum's slug. See README.md here.
+title: RoboVac
+views:
+  - title: RoboVac L60
+    path: robovac-l60
+    icon: mdi:robot-vacuum
+    type: sections
+    max_columns: 3
+    sections:
+      # --- Controls + status -------------------------------------------------
+      - type: grid
+        cards:
+          - type: heading
+            heading: Controls
+            icon: mdi:robot-vacuum
+          - type: tile
+            entity: vacuum.dobby
+            features:
+              - type: vacuum-commands
+                commands:
+                  - start_pause
+                  - stop
+                  - return_home
+                  - locate
+            features_position: bottom
+          - type: tile
+            entity: select.dobby_suction_level
+            name: Suction
+            features:
+              - type: select-options
+          - type: tile
+            entity: switch.dobby_boost_iq
+            features:
+              - type: toggle
+          - type: tile
+            entity: button.dobby_stop_return_to_dock
+          - type: tile
+            entity: button.dobby_locate
+      - type: grid
+        cards:
+          - type: heading
+            heading: Status
+            icon: mdi:information-outline
+          - type: gauge
+            entity: sensor.dobby_battery
+            min: 0
+            max: 100
+            needle: true
+            severity:
+              red: 0
+              yellow: 20
+              green: 50
+          - type: tile
+            entity: sensor.dobby_status
+          - type: tile
+            entity: binary_sensor.dobby_docked
+          - type: tile
+            entity: binary_sensor.dobby_charging
+          - type: tile
+            entity: binary_sensor.dobby_connected
+          - type: tile
+            entity: sensor.dobby_last_seen
+      # --- History -----------------------------------------------------------
+      - type: grid
+        cards:
+          - type: heading
+            heading: History
+            icon: mdi:history
+          - type: tile
+            entity: sensor.dobby_last_cleaned
+          - type: tile
+            entity: sensor.dobby_cleaning_count
+          - type: tile
+            entity: sensor.dobby_last_clean_duration
+          - type: history-graph
+            hours_to_show: 24
+            entities:
+              - entity: sensor.dobby_battery
+              - entity: sensor.dobby_status
+          # Optional: consumables. The L60 sends them encrypted (DPS 168), so
+          # nothing is reported on it. On models that do, the vacuum entity has
+          # a "consumables" attribute:
+          # - type: entities
+          #   title: Consumables
+          #   entities:
+          #     - type: attribute
+          #       entity: vacuum.dobby
+          #       attribute: consumables
+          #       name: Consumables (hours used)
+      # --- Do Not Disturb + diagnostics ---------------------------------------
+      - type: grid
+        cards:
+          - type: heading
+            heading: Diagnostics
+            icon: mdi:stethoscope
+          - type: tile
+            entity: sensor.dobby_last_prompt
+          - type: markdown
+            title: Capture tools
+            content: >-
+              **Download diagnostics:** Settings > Devices & services > RoboVac
+              > the three dots on the entry.
+
+              **Capture mode:** Configure on the integration, choose the
+              vacuum, switch on *Capture mode*. Every DPS change is logged at
+              info level, with decoded values.
+
+              **Read raw values:** Developer tools > Actions >
+              `robovac.get_dps`.
+          # Optional: Do Not Disturb. Not built yet (Phase 15 is on hold until
+          # the DPS 157 encoding is captured), so this block is commented out.
+          # - type: heading
+          #   heading: Do Not Disturb
+          # - type: tile
+          #   entity: switch.dobby_do_not_disturb

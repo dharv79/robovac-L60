@@ -23,8 +23,8 @@ Home Assistant integration for Eufy RoboVac (L60 focus). Active plan: review the
 | 14 Protobuf decoder + last-prompt sensor | Done, merged (8807247, PR #21); CI green; codes 85 and 40 still unnamed | M, ~50k actual |
 | 15 Do Not Disturb entities | On hold (needs DPS 157 captures + Phase 14) | M, ~40-70k |
 | 16 Cleaning events + history sensors | Done, merged (bc28750, PR #22); CI green; on-device check open | M, ~40k actual |
-| 17 Device triggers + blueprints | In progress (draft PR) | M, ~40-65k |
-| 18 Modern L60 dashboard (Lovelace YAML, core cards) | Planned, not built | M, ~40-65k |
+| 17 Device triggers + blueprints | Done, merged (1d2e727, PR #23); CI green; blueprint import/run on a real HA open | M, ~45k actual |
+| 18 Modern L60 dashboard (Lovelace YAML, core cards) | In progress (draft PR) | M, ~40-65k |
 | 19 Reauth / reconfigure + IP test | Planned, not built | M, ~55-85k |
 | 20 "New RoboVac found" setup prompt | Planned, not built | M, ~45-75k |
 | 21 Type hints + type checking | Planned, not built | M, ~50-85k |

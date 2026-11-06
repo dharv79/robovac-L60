@@ -1,0 +1,31 @@
+blueprint:
+  name: RoboVac - dock at a set time if still cleaning
+  description: Sends the vacuum back to its dock at a chosen time when it is still cleaning.
+  domain: automation
+  author: dharv79
+  source_url: https://github.com/dharv79/robovac-L60/blob/main/blueprints/automation/robovac/dock_at_time.yaml
+  input:
+    vacuum:
+      name: Vacuum
+      selector:
+        entity:
+          filter:
+            - integration: robovac
+              domain: vacuum
+    dock_time:
+      name: Time
+      selector:
+        time: {}
+      default: "21:00:00"
+mode: single
+triggers:
+  - trigger: time
+    at: !input dock_time
+conditions:
+  - condition: state
+    entity_id: !input vacuum
+    state: cleaning
+actions:
+  - action: vacuum.return_to_base
+    target:
+      entity_id: !input vacuum

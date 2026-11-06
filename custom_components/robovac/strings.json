@@ -110,5 +110,13 @@
                 }
             }
         }
+    },
+    "device_automation": {
+        "trigger_type": {
+            "cleaning_started": "{entity_name} started cleaning",
+            "cleaning_finished": "{entity_name} finished cleaning",
+            "docked": "{entity_name} docked",
+            "error": "{entity_name} reported an error"
+        }
     }
 }

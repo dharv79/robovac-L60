@@ -34,7 +34,7 @@ Ship a ready-to-use, modern Lovelace dashboard for the L60, built from the entit
 - [ ] CI green, including the YAML test.
 
 ## Status
-In progress (draft PR). Depends on Phases 11, 12, 13, 14, 16 (15 optional).
+Done, merged (6a27948, PR #24). Depends on Phases 11, 12, 13, 14, 16 (15 optional).
 
 ## Size
 M, ~40-65k.

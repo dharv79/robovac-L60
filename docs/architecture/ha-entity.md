@@ -42,3 +42,9 @@ Verified on Dobby: `AggP` (STOP_GOHOME, method 15) stops a return to dock and le
 - Log once: `_mark_unavailable` logs one `warning` when the entity goes unavailable (warm-up exhausted, or `UPDATE_RETRIES` failed polls), and `_mark_available` logs one `info` when it recovers. Individual failures log at debug.
 - Consumables are decoded with `json.loads`, not `ast.literal_eval`. No model currently has both the `CONSUMABLES` feature and a mapped DPS code, so this path doesn't run yet; a Python-literal payload (single quotes) would be logged at debug and ignored.
 - The full `tuyastatus` debug line only appears when `tuyalocalapi.VERBOSE` is on; the one-line "Decoded ..." summary is always logged.
+
+## Restored state after an HA restart (06/11/2026, Phase 06)
+
+- `RoboVacEntity` also inherits `RestoreEntity`. `async_added_to_hass` calls `super().async_added_to_hass()`, then `_async_restore_activity` seeds `_restored_activity` from the last state (any `VacuumActivity` value; `unavailable`/`unknown` are skipped) when `tuya_state` is still `None`.
+- `activity` returns the restored value only while `tuya_state` is `None`, and `extra_state_attributes` then adds `state_restored: true`. The first decoded status clears it.
+- Command logic uses `_live_activity()` (device-reported only): `_update_cleaning_event`, `_async_wait_until_cleaning`, and `_async_start_sequence`'s `tuya_state` checks. A restored state never short-circuits the start escalation; unknown still escalates.

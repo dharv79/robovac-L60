@@ -30,3 +30,11 @@ All queue appends go through `TuyaDevice._enqueue`. It drops expired messages, t
 - `_reset_backoff()` clears the failure count, interval and backoff flag. It runs after a successful send and on every gratuitous push (a push proves the device is reachable). If a backoff was active it sets `_backoff_ended`, which wakes `process_queue` from its sleep straight away.
 - Backoff start and end log at debug only; the entity logs the single unavailable/recovered pair.
 - `VERBOSE` (module-level, default `False`) gates full payloads in debug logs. Off: `Message.describe()` returns `summary()` (`cmd=0x7 seq=N dps=[152,5]`, keys only), state updates log DPS keys, and undecodable payloads log their length. On: full `repr`, full `_dps` and payload hex. Phase 13's capture option will set it.
+
+## DPS query on connect (06/11/2026, Phase 06)
+
+- The L60's GET reply carries no DPS 152/153, so after an HA restart mode and status stay unknown until the device pushes.
+- A model can set `query_dps_on_connect` (a tuple of DPS codes; T2267 sets `(152, 153)`). After each `async_connect`, `_async_query_dps` sends Tuya UPDATEDPS (`0x12`, payload `{"dpId": [...]}`, no 3.3 version header, no response awaited) for any of those codes not yet in `_dps`. It writes directly to the socket because it runs inside `_async_send`.
+- At most `MAX_DPS_QUERIES` (3) per `TuyaDevice`, in case a device drops the socket on the command.
+- Replies to `0x12` are logged at debug by `_async_update_dps_reply`. The pushed DPS arrive as a normal gratuitous update.
+- **Unverified on-device.** The DP_QUERY-with-`dpId`-list variant from the plan wasn't added. Try it only if UPDATEDPS doesn't make Dobby report 152/153; record the result here.

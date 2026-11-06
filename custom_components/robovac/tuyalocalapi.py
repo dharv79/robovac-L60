@@ -64,6 +64,10 @@ BACKOFF_JITTER = 0.2
 # Full payloads and frame hex in debug logs. Off by default; Phase 13's
 # capture option turns it on. Otherwise debug lines carry a one-line summary.
 VERBOSE = False
+
+# UPDATEDPS queries sent per TuyaDevice while a queried DPS is still missing.
+# Bounds the damage if a device drops the socket on the command.
+MAX_DPS_QUERIES = 3
 MAX_QUEUE_LENGTH = 20
 _LOGGER = logging.getLogger(__name__)
 MESSAGE_PREFIX_FORMAT = ">IIII"
@@ -206,6 +210,7 @@ def _log_undecodable(device, payload_data, err):
 
 class Message:
     PING_COMMAND = 0x09
+    UPDATE_DPS_COMMAND = 0x12  # UPDATEDPS: ask the device to push these DPS
     GET_COMMAND = 0x0A
     SET_COMMAND = 0x07
     GRATUITOUS_UPDATE = 0x08
@@ -392,6 +397,7 @@ class TuyaDevice:
         self._handlers: dict[int, Callable[[Message], Coroutine]] = {
             Message.GRATUITOUS_UPDATE: self.async_gratuitous_update_state,
             Message.PING_COMMAND: self._async_pong_received,
+            Message.UPDATE_DPS_COMMAND: self._async_update_dps_reply,
         }
         self._dps = {}
         self._connected = False
@@ -403,6 +409,9 @@ class TuyaDevice:
         self._failures = 0
         self._backoff_ended = asyncio.Event()
         self._background_tasks: set[asyncio.Task] = set()
+        # DPS the model wants pushed on connect (GET doesn't return them).
+        self._query_dps = tuple(getattr(model_details, "query_dps_on_connect", ()))
+        self._dps_queries = 0
 
         self._queue_task = asyncio.create_task(self.process_queue())
 
@@ -521,6 +530,34 @@ class TuyaDevice:
             self._ping_task = asyncio.create_task(self.async_ping(self.ping_interval))
 
         self._reader_task = asyncio.create_task(self._async_handle_message())
+        await self._async_query_dps()
+
+    async def _async_query_dps(self):
+        """Ask the device to push DPS its GET reply leaves out (model-gated)."""
+        missing = [code for code in self._query_dps if str(code) not in self._dps]
+        if not missing or self._dps_queries >= MAX_DPS_QUERIES:
+            return
+        self._dps_queries += 1
+        message = Message(
+            Message.UPDATE_DPS_COMMAND,
+            {"dpId": [int(code) for code in missing]},
+            encrypt=self._encrypt,
+            device=self,
+            expect_response=False,
+        )
+        self._LOGGER.debug(
+            "Querying DPS %s on connect (attempt %s)", missing, self._dps_queries
+        )
+        try:
+            # Called from inside _async_send, so write directly: the queue
+            # task already serialises writes and this goes ahead of its message.
+            self.writer.write(message.bytes())
+            await self.writer.drain()
+        except OSError as e:
+            self._LOGGER.debug("DPS query to %s failed: %r", self, e)
+
+    async def _async_update_dps_reply(self, message):
+        self._LOGGER.debug("UPDATEDPS reply from %s: %s", self, message.describe())
 
     async def async_disable(self):
         self._enabled = False

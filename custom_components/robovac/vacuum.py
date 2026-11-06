@@ -43,6 +43,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import CONF_VACS, DOMAIN, PING_RATE, REFRESH_RATE, TIMEOUT
 from .errors import getErrorMessage
@@ -66,6 +67,7 @@ ATTR_DO_NOT_DISTURB = "do_not_disturb"
 ATTR_BOOST_IQ = "boost_iq"
 ATTR_CONSUMABLES = "consumables"
 ATTR_MODE = "mode"
+ATTR_STATE_RESTORED = "state_restored"
 
 MODE_MAPPING = {
     "AggO": "Resume",
@@ -154,7 +156,7 @@ PASSTHROUGH_ATTRIBUTES = (
 NO_ERROR_CODES = (0, "no_error", None)
 
 
-class RoboVacEntity(StateVacuumEntity):
+class RoboVacEntity(StateVacuumEntity, RestoreEntity):
     """Eufy Robovac L60 Vacuum entity."""
 
     _attr_should_poll = True
@@ -169,6 +171,8 @@ class RoboVacEntity(StateVacuumEntity):
         self._attr_available = False
         self._unavailable_logged = False
         self._warmup_task: asyncio.Task | None = None
+        # Last activity from before an HA restart; display only, see activity.
+        self._restored_activity: VacuumActivity | None = None
         self.ip_address: str | None = item[CONF_IP_ADDRESS]
 
         self._battery_level_cache: int | None = None
@@ -245,7 +249,14 @@ class RoboVacEntity(StateVacuumEntity):
 
     @property
     def activity(self) -> VacuumActivity:
-        """Return the vacuum activity."""
+        """Return the vacuum activity, or the restored one until the device reports."""
+        if self.tuya_state is None and self._restored_activity is not None:
+            return self._restored_activity
+        return self._live_activity()
+
+    def _live_activity(self) -> VacuumActivity:
+        # Device-reported only. Command logic uses this, never the restored
+        # value, so an unknown state still escalates in _async_start_sequence.
         if self.tuya_state is None:
             return VacuumActivity.IDLE
         if self.error_code not in NO_ERROR_CODES:
@@ -279,10 +290,16 @@ class RoboVacEntity(StateVacuumEntity):
         if self._mode:
             data[ATTR_MODE] = self._mode
 
+        if self.tuya_state is None and self._restored_activity is not None:
+            data[ATTR_STATE_RESTORED] = True
+
         return data
 
     async def async_added_to_hass(self):
-        """Start the warm-up in the background so HA startup isn't delayed."""
+        """Restore the last state, then warm up in the background."""
+        await super().async_added_to_hass()
+        await self._async_restore_activity()
+
         if self.vacuum is None:
             return
 
@@ -292,6 +309,20 @@ class RoboVacEntity(StateVacuumEntity):
 
         self._warmup_task = self.hass.async_create_background_task(
             self._async_warm_up(), name=f"robovac warm-up {self.unique_id}"
+        )
+
+    async def _async_restore_activity(self) -> None:
+        last = await self.async_get_last_state()
+        if last is None or self.tuya_state is not None:
+            return
+        try:
+            self._restored_activity = VacuumActivity(last.state)
+        except ValueError:
+            return  # unavailable / unknown: nothing to show
+        _LOGGER.debug(
+            "Restored %s activity %s until the device reports",
+            self.unique_id,
+            self._restored_activity,
         )
 
     async def _async_warm_up(self) -> None:
@@ -424,6 +455,9 @@ class RoboVacEntity(StateVacuumEntity):
         if self._supports(RoboVacEntityFeature.CONSUMABLES):
             self._update_consumables(self._dps_value(RobovacCommand.CONSUMABLES))
 
+        if self.tuya_state is not None:
+            self._restored_activity = None
+
         self._update_cleaning_event()
 
         _LOGGER.debug(
@@ -450,7 +484,7 @@ class RoboVacEntity(StateVacuumEntity):
             _LOGGER.debug("Failed to decode consumables for %s: %s", self.unique_id, err)
 
     def _update_cleaning_event(self) -> None:
-        if self.activity == VacuumActivity.CLEANING:
+        if self._live_activity() == VacuumActivity.CLEANING:
             self._cleaning.set()
         else:
             self._cleaning.clear()
@@ -521,7 +555,7 @@ class RoboVacEntity(StateVacuumEntity):
             await asyncio.wait_for(self._cleaning.wait(), timeout)
         except TimeoutError:
             return False
-        return self.activity == VacuumActivity.CLEANING
+        return self._live_activity() == VacuumActivity.CLEANING
 
     async def _async_start_sequence(self) -> None:
         # Each fallback runs only if the current state (None = unknown) allows it.

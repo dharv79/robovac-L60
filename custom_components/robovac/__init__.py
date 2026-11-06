@@ -16,16 +16,30 @@
 from __future__ import annotations
 
 import logging
+import time
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_IP_ADDRESS, EVENT_HOMEASSISTANT_STOP, Platform
+from homeassistant.const import (
+    CONF_ACCESS_TOKEN,
+    CONF_IP_ADDRESS,
+    CONF_PASSWORD,
+    EVENT_HOMEASSISTANT_STOP,
+    Platform,
+)
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_VACS, DOMAIN
+from .const import CONF_VACS, CONFIG_VERSION, DOMAIN
+from .tuyalocalapi import async_probe_device
 from .tuyalocaldiscovery import TuyaLocalDiscovery
 
 PLATFORMS = [Platform.VACUUM, Platform.SENSOR]
 _LOGGER = logging.getLogger(__name__)
+
+# Discovery broadcasts can be forged, so an IP change is applied only after the
+# vacuum answers on the new IP with its local key, and at most once a minute.
+IP_CHANGE_INTERVAL = 60
+PROBE_TIMEOUT = 5
+_IP_ATTEMPTS = "ip_change_attempts"
 
 
 async def async_setup(hass: HomeAssistant, config) -> bool:
@@ -34,34 +48,7 @@ async def async_setup(hass: HomeAssistant, config) -> bool:
     hass.data[DOMAIN].setdefault(CONF_VACS, {})
 
     async def update_device(device):
-        entry = async_get_config_entry_for_device(hass, device["gwId"])
-        if entry is None:
-            return
-
-        if not entry.state.recoverable:
-            return
-
-        entry_data = dict(entry.data)
-        vacs = dict(entry_data.get(CONF_VACS, {}))
-
-        if (
-            device["gwId"] in vacs
-            and device.get("ip") is not None
-            and vacs[device["gwId"]].get("autodiscovery", True)
-        ):
-            if vacs[device["gwId"]].get(CONF_IP_ADDRESS) != device["ip"]:
-                vac = dict(vacs[device["gwId"]])
-                vac[CONF_IP_ADDRESS] = device["ip"]
-                vacs[device["gwId"]] = vac
-                entry_data[CONF_VACS] = vacs
-
-                hass.config_entries.async_update_entry(entry, data=entry_data)
-                await hass.config_entries.async_reload(entry.entry_id)
-                _LOGGER.debug(
-                    "Updated IP address of %s to %s",
-                    device["gwId"],
-                    device["ip"],
-                )
+        await async_update_device_ip(hass, device)
 
     tuyalocaldiscovery = TuyaLocalDiscovery(update_device)
     try:
@@ -70,6 +57,56 @@ async def async_setup(hass: HomeAssistant, config) -> bool:
     except Exception:
         _LOGGER.exception("Failed to set up discovery")
 
+    return True
+
+
+async def async_update_device_ip(hass: HomeAssistant, device: dict) -> None:
+    """Apply a discovered IP for a known vacuum once it proves its identity."""
+    gw_id = device["gwId"]
+    entry = async_get_config_entry_for_device(hass, gw_id)
+    if entry is None or not entry.state.recoverable:
+        return
+
+    vac = entry.data[CONF_VACS][gw_id]
+    new_ip = device.get("ip")
+    if (
+        new_ip is None
+        or not vac.get("autodiscovery", True)
+        or vac.get(CONF_IP_ADDRESS) == new_ip
+    ):
+        return
+
+    attempts = hass.data.setdefault(DOMAIN, {}).setdefault(_IP_ATTEMPTS, {})
+    now = time.monotonic()
+    if now - attempts.get(gw_id, -IP_CHANGE_INTERVAL) < IP_CHANGE_INTERVAL:
+        return
+    attempts[gw_id] = now
+
+    if not await async_probe_device(
+        new_ip, gw_id, vac.get(CONF_ACCESS_TOKEN), timeout=PROBE_TIMEOUT
+    ):
+        _LOGGER.debug(
+            "Ignoring broadcast for %s: no authenticated reply from %s", gw_id, new_ip
+        )
+        return
+
+    entry_data = dict(entry.data)
+    vacs = dict(entry_data[CONF_VACS])
+    vacs[gw_id] = {**vac, CONF_IP_ADDRESS: new_ip}
+    entry_data[CONF_VACS] = vacs
+    hass.config_entries.async_update_entry(entry, data=entry_data)
+    await hass.config_entries.async_reload(entry.entry_id)
+    _LOGGER.debug("Updated IP address of %s to %s", gw_id, new_ip)
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate old entries; v2 stops storing the Eufy account password."""
+    if entry.version > CONFIG_VERSION:
+        return False
+    if entry.version < 2:
+        data = {key: value for key, value in entry.data.items() if key != CONF_PASSWORD}
+        hass.config_entries.async_update_entry(entry, data=data, version=2)
+        _LOGGER.debug("Migrated %s to version 2 (password removed)", entry.title)
     return True
 
 

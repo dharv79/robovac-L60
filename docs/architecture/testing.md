@@ -5,9 +5,12 @@ Rewritten 06/11/2026 (Phase 07) when the test suite and CI were added. Earlier t
 ## CI
 
 `.github/workflows/ci.yml` runs on every pull request and on pushes to `main`. It uses Python 3.13 with `requirements_test.txt`, and runs:
-1. `ruff check custom_components tests`. The `ruff.toml` baseline is `E9` + `F` only, chosen so the existing code passes; tighten it one rule family per commit. `setup.py` is out of scope.
+1. `ruff check custom_components tests`. `ruff.toml` selects `E9` + `F` (Phase 07 baseline) and `S` (flake8-bandit, Phase 08); tighten one rule family per commit. Source `S` hits carry a per-line `# noqa: S… - reason`; tests may use bare `assert` (S101). `setup.py` is out of scope.
 2. `python -m compileall -q custom_components tests`.
 3. `pytest`. `pytest.ini` sets `asyncio_mode = auto` and `testpaths = tests`.
+4. A separate `secrets` job runs gitleaks (version- and checksum-pinned) over the full history with values redacted. Reviewed false positives are in `.gitleaksignore`. See `security.md`.
+
+Actions are pinned to full commit SHAs; Dependabot (`.github/dependabot.yml`) proposes updates weekly.
 
 There's no formatter check yet, because the repo isn't black/ruff-formatted. Adding one means a reformat-only commit first.
 
@@ -32,7 +35,8 @@ pytest            # or: pytest tests/test_vacuum.py -k start
 | `tests/test_do_not_break.py` | CLAUDE.md rules: #1 EOF disconnects without retrying the read; #2 no `homeassistant` import in `vacuums/*.py`; #3 `getCommandCodes()` values are `str` for every model; #6 `async_disable` cancels the three loop tasks; #7 registry key = class name, 5 chars. #4 is in `test_vacuum.py`; #5 is covered by the activity mapping tests. |
 | `tests/test_tuyalocalapi.py` | AES round-trip (SET with the 3.3 header, GET without); device-frame decode; CRC and truncation rejection; SET bytes round-trip; `Message.summary`; queue stale-SET replacement, partial overlap and cap (Phase 04); backoff jitter and cap, and a push clearing the backoff and waking the queue (Phase 05); UPDATEDPS on connect, capped and missing-only (Phase 06). |
 | `tests/test_vacuum.py` | Status DPS → activity mapping; battery cache (#4); consumables JSON; Boost IQ toggles DPS 159; unsupported model is inert; one refresh per burst; start sequence from 6 states with exact command order; Dock, a raw mode write or a second start during a start; fan speed doesn't cancel; unavailable/recovered logged once; warm-up in the background (Phase 05); restored state is display-only (Phase 06). |
-| `tests/test_config_flow.py` | User step: entry created, plus `invalid_auth`, `cannot_connect` and `unknown` errors, with `get_eufy_vacuums` mocked and integration setup patched out. |
+| `tests/test_security.py` | Phase 08: device `repr`/`str` omit the local key; config-flow skip path and Tuya cloud errors log no keys, URLs or bodies; Eufy refuses a non-HTTPS host; v1→v2 migration strips the password; broadcast validation and task tracking; IP change only after an authenticated probe, rate-limited, unknown gwId ignored; probe accepts only an encrypted reply (wrong key, plaintext spoof, EOF and refused all fail); bad length fields rejected and bad frames + EOF end the reader loop. |
+| `tests/test_config_flow.py` | User step: entry created (without the password), plus `invalid_auth`, `cannot_connect` and `unknown` errors, with `get_eufy_vacuums` mocked and integration setup patched out. |
 
 ## Manual testing on HA
 

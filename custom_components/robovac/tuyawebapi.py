@@ -14,7 +14,10 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import requests
 
 TUYA_INITIAL_BASE_URL = "https://a1.tuyaeu.com"
+REQUEST_TIMEOUT = 10
 
+# Public constants extracted from the Eufy/Tuya apps (shared by every install),
+# not user secrets. The same applies to TUYA_PASSWORD_INNER_CIPHER below.
 EUFY_HMAC_KEY = (
     "A_cepev5pfnhua4dkqkdpmnrdxx378mpjr_s8x78u7xwymasd9kqa7a73pjhxqsedaj".encode()
 )
@@ -28,7 +31,7 @@ def unpadded_rsa(key_exponent: int, key_n: int, plaintext: bytes) -> bytes:
 
 
 def shuffled_md5(value: str) -> str:
-    _hash = md5(value.encode("utf-8")).hexdigest()
+    _hash = md5(value.encode("utf-8")).hexdigest()  # noqa: S324 - Tuya API signature scheme
     return _hash[8:16] + _hash[0:8] + _hash[24:32] + _hash[16:24]
 
 
@@ -85,6 +88,10 @@ DEFAULT_TUYA_QUERY_PARAMS = {
 }
 
 
+class TuyaAPIError(Exception):
+    """A Tuya cloud call failed (message never includes the response body)."""
+
+
 class TuyaAPISession:
     username = None
     country_code = None
@@ -112,7 +119,7 @@ class TuyaAPISession:
         base64_characters = string.ascii_letters + string.digits
         device_id_dependent_part = "8534c8ec0ed0"
         return device_id_dependent_part + "".join(
-            random.choice(base64_characters)
+            random.choice(base64_characters)  # noqa: S311 - random app device id, not a secret
             for _ in range(expected_length - len(device_id_dependent_part))
         )
 
@@ -164,12 +171,16 @@ class TuyaAPISession:
                 "sign": self.get_signature(query_params, encoded_post_data),
             },
             data={"postData": encoded_post_data} if encoded_post_data else None,
+            timeout=REQUEST_TIMEOUT,
         )
-        resp.raise_for_status()
+        # Errors carry the status/error code only: the URL holds the session id
+        # and the body can hold local keys, and both end up in logs.
+        if not resp.ok:
+            raise TuyaAPIError(f"Tuya {action} failed: HTTP {resp.status_code}")
         data = resp.json()
         if "result" not in data:
-            raise Exception(
-                f"No 'result' key in the response - the entire response is {data}."
+            raise TuyaAPIError(
+                f"Tuya {action} failed: {data.get('errorCode', 'no result')}"
             )
         return data["result"]
 
@@ -187,7 +198,7 @@ class TuyaAPISession:
         encryptor = TUYA_PASSWORD_INNER_CIPHER.encryptor()
         encrypted_uid = encryptor.update(password_uid.encode("utf8"))
         encrypted_uid += encryptor.finalize()
-        return md5(encrypted_uid.hex().upper().encode("utf-8")).hexdigest()
+        return md5(encrypted_uid.hex().upper().encode("utf-8")).hexdigest()  # noqa: S324 - Tuya password-derivation scheme
 
     def request_session(self, username, password, country_code):
         token_response = self.request_token(username, country_code)
@@ -213,7 +224,7 @@ class TuyaAPISession:
                 _requires_session=False,
             )
         except Exception as e:
-            error_password = md5("12345678".encode("utf8")).hexdigest()
+            error_password = md5("12345678".encode("utf8")).hexdigest()  # noqa: S324 - Tuya fallback password scheme
 
             if password != error_password:
                 return self.request_session(username, error_password, country_code)
@@ -225,8 +236,11 @@ class TuyaAPISession:
         session_response = self.request_session(
             self.username, password, self.country_code
         )
+        base_url = session_response["domain"]["mobileApiUrl"]
+        if not str(base_url).startswith("https://"):
+            raise TuyaAPIError("Tuya returned a non-HTTPS API URL")
         self.session_id = self.default_query_params["sid"] = session_response["sid"]
-        self.base_url = session_response["domain"]["mobileApiUrl"]
+        self.base_url = base_url
         self.country_code = (
             session_response["phoneCode"]
             if session_response["phoneCode"]

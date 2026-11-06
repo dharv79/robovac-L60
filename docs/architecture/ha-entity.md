@@ -10,7 +10,7 @@ State updates arrive via two paths: (1) polling — `async_update` → `async_up
 
 **`sensor.py`** — `RobovacBatterySensor` polls `hass.data[DOMAIN][CONF_VACS][id]._battery_level_cache` from the vacuum entity rather than communicating with the device directly.
 
-**`config_flow.py`** — Two-step setup: initial credential flow calls Eufy/Tuya cloud APIs synchronously (via `async_add_executor_job`) to populate `CONF_VACS`. Options flow lets users set IP address and toggle autodiscovery per vacuum.
+**`config_flow.py`** — Two-step setup: initial credential flow calls Eufy/Tuya cloud APIs synchronously (via `async_add_executor_job`) to populate `CONF_VACS`. The password is used only for that and is not stored (entry `VERSION` 2; `async_migrate_entry` strips it from v1 entries). Options flow lets users set IP address and toggle autodiscovery per vacuum.
 
 ## Entity behaviour details
 

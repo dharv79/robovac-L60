@@ -122,7 +122,7 @@ class TuyaCipher:
     def __init__(self, key, version):
         self.version = version
         self.key = key
-        self.cipher = Cipher(algorithms.AES(key.encode("ascii")), modes.ECB())
+        self.cipher = Cipher(algorithms.AES(key.encode("ascii")), modes.ECB())  # noqa: S305 - Tuya 3.3 mandates AES-ECB (accepted risk, security.md)
 
     def get_prefix_size_and_validate(self, command, encrypted_data):
         try:
@@ -179,7 +179,7 @@ class TuyaCipher:
         return prefix + payload
 
     def hash(self, data):
-        digest = Hash(MD5())
+        digest = Hash(MD5())  # noqa: S303 - Tuya <3.3 payload hash is MD5 by protocol
         to_hash = "data={}||lpv={}||{}".format(
             data.decode("ascii"), ".".join(map(str, self.version)), self.key
         )
@@ -196,7 +196,7 @@ def crc(data):
 def backoff_interval(failures):
     """Queue delay after `failures` (>3) consecutive send failures, with jitter."""
     base = min(INITIAL_BACKOFF * (BACKOFF_MULTIPLIER ** (failures - 4)), MAX_BACKOFF)
-    return base * random.uniform(1 - BACKOFF_JITTER, 1 + BACKOFF_JITTER)
+    return base * random.uniform(1 - BACKOFF_JITTER, 1 + BACKOFF_JITTER)  # noqa: S311 - backoff jitter, not crypto
 
 
 def _log_undecodable(device, payload_data, err):
@@ -304,7 +304,9 @@ class Message:
     __bytes__ = bytes
 
     @classmethod
-    def from_bytes(cls, device, data, cipher=None):
+    def from_bytes(cls, device, data, cipher=None, require_encrypted=False):
+        """Parse one frame. `require_encrypted` rejects payloads that don't
+        decrypt with `cipher` (by default they're kept as plaintext)."""
         try:
             prefix, sequence, command, payload_size = struct.unpack_from(
                 MESSAGE_PREFIX_FORMAT, data
@@ -319,6 +321,8 @@ class Message:
         except struct.error as e:
             raise InvalidMessage("Unable to unpack return code.") from e
 
+        if payload_size < SUFFIX_SIZE or HEADER_SIZE + payload_size > len(data):
+            raise InvalidMessage("Message length field out of range.")
         body_end = HEADER_SIZE + payload_size - SUFFIX_SIZE
         # Device responses carry a 4-byte return code before the payload.
         body_start = HEADER_SIZE if return_code >> 8 else HEADER_SIZE + RETURN_CODE_SIZE
@@ -340,8 +344,9 @@ class Message:
         if payload_data:
             try:
                 payload_data = cipher.decrypt(command, payload_data)
-            except ValueError:
-                pass
+            except ValueError as e:
+                if require_encrypted:
+                    raise MessageDecodeFailed() from e
             try:
                 payload_text = payload_data.decode("utf8")
             except UnicodeDecodeError as e:
@@ -416,12 +421,12 @@ class TuyaDevice:
         self._queue_task = asyncio.create_task(self.process_queue())
 
     def __repr__(self):
-        return "{}({!r}, {!r}, {!r}, {!r})".format(
+        # Never include the local key: device reprs end up in debug logs.
+        return "{}({!r}, {!r}, {!r})".format(
             self.__class__.__name__,
             self.device_id,
             self.host,
             self.port,
-            self.cipher.key,
         )
 
     def __str__(self):
@@ -773,3 +778,58 @@ class TuyaDevice:
         if isinstance(response, Exception):
             raise response
         return response
+
+
+class _ProbeDevice:
+    """Just enough of a TuyaDevice for Message to encrypt and decode."""
+
+    def __init__(self, local_key, version):
+        self.cipher = TuyaCipher(local_key, version)
+        self.version = version
+        self._LOGGER = _LOGGER
+
+
+async def async_probe_device(
+    host, device_id, local_key, port=6668, timeout=5.0, version=(3, 3)
+):
+    """Return True if `host` answers a GET encrypted with `local_key`.
+
+    Only the real device knows its local key, so an encrypted DPS reply proves
+    a discovery broadcast naming this IP came from the vacuum, not a spoofer.
+    """
+    try:
+        probe = _ProbeDevice(local_key, version)
+    except (TypeError, ValueError, AttributeError):
+        return False
+    request = Message(
+        Message.GET_COMMAND,
+        {"gwId": device_id, "devId": device_id},
+        encrypt=version >= (3, 3),
+        device=probe,
+        expect_response=False,
+    )
+    writer = None
+    try:
+        async with asyncio.timeout(timeout):
+            reader, writer = await asyncio.open_connection(host, port)
+            writer.write(request.bytes())
+            await writer.drain()
+            while True:
+                frame = await reader.readuntil(MAGIC_SUFFIX_BYTES)
+                try:
+                    reply = Message.from_bytes(
+                        probe, frame, probe.cipher, require_encrypted=True
+                    )
+                except TuyaException:
+                    continue
+                if isinstance(reply.payload, dict) and "dps" in reply.payload:
+                    return True
+    except (TimeoutError, OSError, asyncio.IncompleteReadError, asyncio.LimitOverrunError):
+        return False
+    finally:
+        if writer is not None:
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except OSError:
+                pass

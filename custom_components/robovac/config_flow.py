@@ -16,7 +16,6 @@
 """Config flow for Eufy Robovac L60 integration."""
 from __future__ import annotations
 
-import json
 import logging
 from copy import deepcopy
 from typing import Any, Optional
@@ -43,7 +42,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 
-from .const import CONF_AUTODISCOVERY, CONF_VACS, DOMAIN
+from .const import CONF_AUTODISCOVERY, CONF_VACS, CONFIG_VERSION, DOMAIN
 from .countries import (
     get_phone_code_by_country_code,
     get_phone_code_by_region,
@@ -154,16 +153,14 @@ def get_eufy_vacuums(self_data: dict[str, Any]):
             self_data[CONF_VACS][item["id"]] = vac_details
 
         except Exception as err:
+            # Never log the cloud item or Tuya reply: they can carry localKeys.
             _LOGGER.debug(
-                "Vacuum %s found on Eufy, but not on Tuya or failed to parse. "
-                "Skipping. Error: %s",
+                "Vacuum %s (model %s) found on Eufy, but not on Tuya or failed "
+                "to parse. Skipping. Error: %s",
                 item.get("id"),
-                err,
+                item.get("product", {}).get("product_code"),
+                type(err).__name__,
             )
-            try:
-                _LOGGER.debug("Skipped device payload: %s", json.dumps(item, indent=2))
-            except Exception:
-                pass
 
     return self_data
 
@@ -175,6 +172,8 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Eufy Robovac L60."""
+
+    VERSION = CONFIG_VERSION
 
     data: Optional[dict[str, Any]]
 
@@ -200,6 +199,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         else:
             await self.async_set_unique_id(unique_id)
             self._abort_if_unique_id_configured()
+            # The password is only needed to fetch local keys; don't store it.
+            valid_data.pop(CONF_PASSWORD, None)
             return self.async_create_entry(title=unique_id, data=valid_data)
 
         return self.async_show_form(

@@ -4,7 +4,8 @@
 Brainstorm only — no code changes. Each idea is grounded in the current codebase (file/line where relevant), with a rough size estimate so the user can pick which ones become their own numbered phase (04, 05, ...). Ideas are roughly ordered by value for effort.
 
 ## Status
-Done (ideas written up below). Not merged yet. Nothing here is scheduled — pick items and I'll turn each into its own phase file.
+Done, merged (1d54606, PR #5). Promoted (06/11/2026): #1 → Phase 04, #9 → Phase 05, #2 → Phase 06, #18 → Phase 07.
+Stale since Phase 02: #4 (timeouts landed), #6 (`EMPTY_MAPPING` removed). On the L60, #7 and #14 have no usable DPS codes (commented out / encrypted in the L60 model files).
 
 ## Ideas
 

@@ -9,7 +9,11 @@ Home Assistant integration for Eufy RoboVac (L60 focus). Active plan: review the
 |---|---|---|
 | 01 Code review & audit | Done, merged (1d54606, PR #5) | S, ~25k actual |
 | 02 Apply review fixes | Done, merged (1d54606, PR #5); Boost IQ verified on-device, DND open (needs DPS 157 protobuf encoding) | M, ~45k actual |
-| 03 Feature ideas (20) | In progress (ideas written, not merged) | S, ~20k actual |
+| 03 Feature ideas (20) | Done, merged (1d54606, PR #5) | S, ~20k actual |
+| 04 Boost IQ switch + services | Planned, not built | S, ~25-45k |
+| 05 Diagnostics download | Planned, not built | S, ~20-35k |
+| 06 Reauth / reconfigure flow | Planned, not built | M, ~45-70k |
+| 07 Tests + lint in CI | Planned, not built | L, ~90-140k |
 
 ## Decisions locked in with the user (do not re-litigate)
 - Releases go through the `release/vX.Y.Z` branch workflow; version and target commit are confirmed with the user first.

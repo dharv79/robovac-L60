@@ -419,7 +419,17 @@ class RoboVacEntity(CoordinatorEntity[RoboVacCoordinator], StateVacuumEntity, Re
                     command,
                 )
                 return
-            updates = [{code: not self._state.passthrough.get(attr)}]
+            current = self._state.passthrough.get(attr)
+            if command == "doNotDisturb" and not isinstance(current, bool):
+                # L60 DPS 157 holds a protobuf string, not a bool; a toggle
+                # would write False to it. Ignored until Phase 15.
+                _LOGGER.debug(
+                    "%s: DND value %r is not boolean; ignoring send_command doNotDisturb",
+                    self.unique_id,
+                    current,
+                )
+                return
+            updates = [{code: not current}]
         elif command == "roomClean":
             if not self._supports(RoboVacEntityFeature.ROOM):
                 _LOGGER.debug(

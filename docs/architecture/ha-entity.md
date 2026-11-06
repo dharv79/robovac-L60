@@ -62,6 +62,7 @@ Verified on Dobby: `AggP` (STOP_GOHOME, method 15) stops a return to dock and le
 
 - `entity.py`: `RoboVacBaseEntity(CoordinatorEntity)` for helper entities: `has_entity_name`, `translation_key`, unique_id `<vac_id>_<key>`, device identifiers, `available` from the coordinator. Names live in `strings.json` / `translations/en.json` (`entity.<domain>.<key>.name`).
 - `switch.py`: Boost IQ (`<id>_boost_iq`), only where the model has `BOOST_IQ` and a DPS code. State from `coordinator.data.passthrough[boost_iq]` (`None` = unknown). Writes an explicit `True`/`False`; the `boostIQ` `send_command` stays a toggle.
+- `send_command doNotDisturb` toggles only a boolean current value; the L60's DPS 157 is a protobuf string, so it is ignored (debug log) until Phase 15 (07/11/2026).
 - `button.py`: Stop return to dock (`<id>_stop_return`, only if the model file declares `ModeKey.STOP_RETURN`, i.e. `coordinator.declared_modes`) and Locate (`<id>_locate`, toggles DPS 160 like the vacuum entity).
 - `select.py`: Suction level (`<id>_suction_level`), options from `coordinator.fan_speed_map`; unknown current value shows as unknown.
 - All writes go through `coordinator.async_send_dps(*dps, supersede_start=False)`: one follow-up refresh per burst, and `supersede_start=True` (mode commands) calls `coordinator.cancel_start`, which the vacuum entity points at its `_cancel_start`.

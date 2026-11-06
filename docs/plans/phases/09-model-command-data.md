@@ -32,5 +32,5 @@ Move the L60 DPS 152 mode strings out of `vacuum.py` into the model files, under
 Built (06/11/2026). On-device check pending.
 
 ## Built (06/11/2026)
-- 247 tests pass (was 237); ruff clean.
+- 247 tests pass; ruff clean.
 - Defaults live in `vacuums/base.py`, not `vacuum.py`, so the "no raw strings in `vacuum.py`" rule holds while legacy models keep working.

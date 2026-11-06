@@ -20,7 +20,7 @@ From the 06/11/2026 brainstorm (features: device triggers, bundled blueprints). 
 - [ ] README has a Blueprints section.
 
 ## Status
-In progress (draft PR).
+Done, merged (1d2e727, PR #23).
 
 ## Size
 M, ~40-65k.

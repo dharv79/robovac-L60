@@ -406,6 +406,8 @@ class TuyaDevice:
         }
         self._dps = {}
         self._connected = False
+        # Optional sync callback, called when the socket connects or drops.
+        self.connection_cb: Callable[[], None] | None = None
         self._enabled = True
         self._queue: deque[Message] = deque()
         self._listeners = {}
@@ -513,6 +515,17 @@ class TuyaDevice:
             )
         self._queue.append(message)
 
+    @property
+    def connected(self) -> bool:
+        return self._connected
+
+    def _notify_connection(self) -> None:
+        if self.connection_cb is not None:
+            try:
+                self.connection_cb()
+            except Exception:  # a listener must never break the socket
+                self._LOGGER.exception("Connection callback failed for %s", self)
+
     async def async_connect(self):
         if self._connected or not self._enabled:
             return
@@ -530,6 +543,7 @@ class TuyaDevice:
                 "Connection to {} failed: {}".format(self, e)
             ) from e
         self._connected = True
+        self._notify_connection()
 
         if self._ping_task is None or self._ping_task.done():
             self._ping_task = asyncio.create_task(self.async_ping(self.ping_interval))
@@ -580,6 +594,7 @@ class TuyaDevice:
         self._LOGGER.debug("Disconnected from %s", self)
         self._connected = False
         self.last_pong = 0
+        self._notify_connection()
 
         if self._response_task is not None and not self._response_task.done():
             self._response_task.cancel()

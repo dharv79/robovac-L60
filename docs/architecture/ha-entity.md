@@ -67,3 +67,10 @@ Verified on Dobby: `AggP` (STOP_GOHOME, method 15) stops a return to dock and le
 - All writes go through `coordinator.async_send_dps(*dps, supersede_start=False)`: one follow-up refresh per burst, and `supersede_start=True` (mode commands) calls `coordinator.cancel_start`, which the vacuum entity points at its `_cancel_start`.
 - Services (entity services on the vacuum platform, `services.yaml`): `robovac.start_new_clean` (stop-return, wait up to `NEW_CLEAN_SETTLE_TIMEOUT` for a non-paused state, then start-auto; runs as the cancellable `_start_task`) and `robovac.auto_clean` (start-auto directly, no escalation). `edge_clean` / `small_room_clean` were dropped: no L60 model declares those modes (user decision, 06/11/2026).
 
+## Status and connectivity entities (Phase 12, 06/11/2026)
+
+- `sensor.py` adds `StatusSensor` (`<id>_status`, `device_class: enum`, options = `STATUS_MAPPING` texts for the model's `status_values`; unknown if the status isn't an option) and `LastSeenSensor` (`<id>_last_seen`, `timestamp`, diagnostic, `coordinator.last_seen`, set on every parsed push or GET reply; always available so a stale value shows while offline).
+- `binary_sensor.py`: `docked` (status in `DOCKED_STATES` = Charging / Completed, matching `live_activity` DOCKED), `charging` (`battery_charging`; status Charging) and `connected` (`connectivity`, diagnostic; always available so it reads off rather than unavailable). `docked` and `charging` are unknown until a status arrives. Strings come from the captured statuses; "Recharge" (heading home) is not docked.
+- `connected` reads `coordinator.connected` → `TuyaDevice.connected`. `TuyaDevice.connection_cb` (sync, exceptions logged and contained) fires on connect and disconnect; the coordinator points it at `async_update_listeners`, so a ping timeout turns the sensor off within one ping interval.
+- DeviceInfo: the MAC is already on the device via the vacuum entity (`connections`). The firmware version isn't stored at setup, so `sw_version` is omitted (no migration added, per plan).
+

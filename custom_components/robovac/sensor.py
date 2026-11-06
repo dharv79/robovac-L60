@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import logging
+from datetime import datetime
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.const import CONF_ID, CONF_NAME, PERCENTAGE, EntityCategory
@@ -24,7 +25,9 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import RoboVacConfigEntry
 from .const import DOMAIN
-from .coordinator import RoboVacCoordinator
+from .coordinator import STATUS_MAPPING, RoboVacCoordinator
+from .entity import RoboVacBaseEntity
+from .vacuums.base import RobovacCommand
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,10 +38,14 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up battery sensors for each vacuum."""
-    async_add_entities(
-        RobovacBatterySensor(coordinator)
-        for coordinator in config_entry.runtime_data.values()
-    )
+    entities: list[SensorEntity] = []
+    for coordinator in config_entry.runtime_data.values():
+        entities.append(RobovacBatterySensor(coordinator))
+        if coordinator.vacuum is not None:
+            entities.append(LastSeenSensor(coordinator))
+            if RobovacCommand.STATUS in coordinator.command_codes:
+                entities.append(StatusSensor(coordinator))
+    async_add_entities(entities)
 
 
 class RobovacBatterySensor(CoordinatorEntity[RoboVacCoordinator], SensorEntity):
@@ -77,3 +84,37 @@ class RobovacBatterySensor(CoordinatorEntity[RoboVacCoordinator], SensorEntity):
     def _handle_coordinator_update(self) -> None:
         self._cache_battery()
         super()._handle_coordinator_update()
+
+
+class StatusSensor(RoboVacBaseEntity, SensorEntity):
+    """The vacuum's status text ("Recharge", "Cleaning paused", ...)."""
+
+    _attr_device_class = SensorDeviceClass.ENUM
+
+    def __init__(self, coordinator: RoboVacCoordinator) -> None:
+        super().__init__(coordinator, "status")
+        keys = set(coordinator.status_values.values())
+        self._attr_options = [text for key, text in STATUS_MAPPING.items() if key in keys]
+
+    @property
+    def native_value(self) -> str | None:
+        status = self.coordinator.data.status if self.coordinator.data else None
+        return status if status in self._attr_options else None
+
+
+class LastSeenSensor(RoboVacBaseEntity, SensorEntity):
+    """When the vacuum last pushed or answered a GET."""
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: RoboVacCoordinator) -> None:
+        super().__init__(coordinator, "last_seen")
+
+    @property
+    def available(self) -> bool:
+        return True  # a stale timestamp is the point while the vacuum is offline
+
+    @property
+    def native_value(self) -> datetime | None:
+        return self.coordinator.last_seen

@@ -27,7 +27,7 @@ See the `test_control_entities.py` row in `docs/architecture/testing.md`.
 - [x] CI green; `ha-entity.md` and the CLAUDE.md code map updated.
 
 ## Status
-In progress (PR pending). On-device checks pending.
+Done, merged (9e438de, PR #16); CI green. On-device checks pending.
 
 ## Built (06/11/2026)
 - 270 tests pass locally; ruff clean.

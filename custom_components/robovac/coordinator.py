@@ -38,6 +38,7 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.util import dt as dt_util
 
 from . import tuyalocalapi
 from .const import DOMAIN, PING_RATE, REFRESH_RATE, TIMEOUT
@@ -102,6 +103,9 @@ STATUS_MAPPING = {
     "SLEEPING": "Sleeping",
 }
 
+# Statuses where the vacuum sits on its dock (matches live_activity DOCKED).
+DOCKED_STATES = ("Charging", "Completed")
+
 PAUSED_STATES = ("Cleaning paused", "Cleaning room paused", "Cleaning spot paused")
 
 ERROR_MAPPING = {
@@ -152,7 +156,7 @@ def live_activity(status: str | None, error: str | None) -> VacuumActivity:
         return VacuumActivity.IDLE
     if error not in NO_ERROR_CODES:
         return VacuumActivity.ERROR
-    if status in ("Charging", "Completed"):
+    if status in DOCKED_STATES:
         return VacuumActivity.DOCKED
     if status == "Recharge":
         return VacuumActivity.RETURNING
@@ -194,6 +198,7 @@ class RoboVacCoordinator(DataUpdateCoordinator[RoboVacData]):
         self.cancel_start: Callable[[], None] | None = None
         self._unsub_watchdog = None
         self._last_data = 0.0
+        self.last_seen: datetime | None = None  # last push or GET reply
         self.vacuum: RoboVac | None = self._create_device()
 
         if self.vacuum is not None:
@@ -223,6 +228,12 @@ class RoboVacCoordinator(DataUpdateCoordinator[RoboVacData]):
     # --- device ---------------------------------------------------------
 
     def _create_device(self) -> RoboVac | None:
+        device = self._build_device()
+        if device is not None:
+            device.connection_cb = self.async_update_listeners
+        return device
+
+    def _build_device(self) -> RoboVac | None:
         try:
             return RoboVac(
                 device_id=self.vacuum_id,
@@ -242,6 +253,11 @@ class RoboVacCoordinator(DataUpdateCoordinator[RoboVacData]):
     @property
     def error_code(self) -> str | None:
         return self.fault or (self.data or EMPTY_DATA).error
+
+    @property
+    def connected(self) -> bool:
+        """Whether the socket to the vacuum is currently open."""
+        return self.vacuum is not None and self.vacuum.connected
 
     def supports(self, feature: RoboVacEntityFeature) -> bool:
         return bool(self.robovac_features & feature)
@@ -458,6 +474,7 @@ class RoboVacCoordinator(DataUpdateCoordinator[RoboVacData]):
         )
         self.fault = None
         self._last_data = time.monotonic()
+        self.last_seen = dt_util.utcnow()
         if live_activity(data.status, data.error) == VacuumActivity.CLEANING:
             self.cleaning.set()
         else:

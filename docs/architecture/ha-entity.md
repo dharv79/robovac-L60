@@ -19,3 +19,7 @@ State updates arrive via two paths: (1) polling — `async_update` → `async_up
 - Entity commands go through `_async_send_dps(*dps_dicts)`, which queues the writes and schedules exactly one follow-up state refresh (exceptions from that refresh are caught and logged).
 - The integration uses `iot_class: local_polling` but also receives gratuitous push updates from the device via `async_gratuitous_update_state`.
 - After 4 consecutive update failures (`UPDATE_RETRIES`), the entity is marked unavailable. On startup, `async_added_to_hass` makes up to 5 warm-up attempts (1.5 s apart) before giving up — this handles the L60's tendency to sleep and not respond immediately.
+
+## Start while paused sends resume (06/11/2026)
+
+On the L60, DPS 152 is a protobuf `ModeCtrl` method: `AggN` = PAUSE_TASK (13), `AggO` = RESUME_TASK (14), `BBoCCAE=` = START_AUTO_CLEAN with options. In the user's 10:15 log Dobby was in "Cleaning paused" (153 `CAoAEAUyAggB`); `vacuum.start` sent `BBoCCAE=`, which was acked but ignored. `async_start` now sends `AggO` when the state is any paused state (`PAUSED_STATES`), and `activity` reports PAUSED for room/spot pauses too. `MODE_MAPPING["AggO"]` relabelled from "Auto cleaning" to "Resume". Untested whether start from "Recharge" (mid-task return to dock) also needs resume.

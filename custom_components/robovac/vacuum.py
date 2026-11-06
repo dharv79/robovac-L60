@@ -65,7 +65,7 @@ ATTR_CONSUMABLES = "consumables"
 ATTR_MODE = "mode"
 
 MODE_MAPPING = {
-    "AggO": "Auto cleaning",
+    "AggO": "Resume",
     "BBoCCAE=": "Start auto",
     "AggN": "Pause",
     "AggG": "Stop / Go to charge",
@@ -107,6 +107,8 @@ STATUS_MAPPING = {
     "STANDBY": "Standby",
     "SLEEPING": "Sleeping",
 }
+
+PAUSED_STATES = ("Cleaning paused", "Cleaning room paused", "Cleaning spot paused")
 
 ERROR_MAPPING = {
     "DAiI6suO9dXszgFSAA==": "no_error",
@@ -244,7 +246,7 @@ class RoboVacEntity(StateVacuumEntity):
             return VacuumActivity.RETURNING
         if self.tuya_state in ("Sleeping", "Standby"):
             return VacuumActivity.IDLE
-        if self.tuya_state == "Cleaning paused":
+        if self.tuya_state in PAUSED_STATES:
             return VacuumActivity.PAUSED
         return VacuumActivity.CLEANING
 
@@ -459,8 +461,13 @@ class RoboVacEntity(StateVacuumEntity):
         await self._async_set_mode("AggG")
 
     async def async_start(self, **kwargs):
-        """Start cleaning."""
-        await self._async_set_mode("BBoCCAE=")
+        """Start cleaning, or resume a paused task."""
+        # The L60 ignores "start auto clean" while a task is paused; it needs
+        # RESUME_TASK (method 14, "AggO"), as the Eufy app sends.
+        if self.tuya_state in PAUSED_STATES:
+            await self._async_set_mode("AggO")
+        else:
+            await self._async_set_mode("BBoCCAE=")
 
     async def async_pause(self, **kwargs):
         """Pause cleaning."""

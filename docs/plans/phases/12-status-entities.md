@@ -25,7 +25,7 @@ See the `test_status_entities.py` row in `docs/architecture/testing.md`.
 - [x] CI green; `ha-entity.md` updated; the CLAUDE.md code map lists `binary_sensor.py`.
 
 ## Status
-In progress (PR pending). On-device checks pending.
+Done, merged (8ed3785, PR #17); CI green. On-device checks pending.
 
 ## Built (06/11/2026)
 - 279 tests pass locally; ruff clean.

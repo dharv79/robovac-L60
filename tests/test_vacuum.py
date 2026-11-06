@@ -100,6 +100,14 @@ async def test_boost_iq_toggles_dps_159(entity):
     assert fake.sent[-1] == {"159": False}
 
 
+async def test_dnd_toggle_ignored_for_protobuf_value(entity):
+    fake = attach(entity, STANDBY)
+    entity.vacuum._dps["157"] = "DgoAEgoKABICCBYaAggI"
+    entity.coordinator.update_from_device()
+    await entity.async_send_command("doNotDisturb")
+    assert not any("157" in sent for sent in fake.sent)
+
+
 async def test_unsupported_model_is_inert(hass):
     ent = make_entity(hass, make_item(model="T9999"))
     assert ent.vacuum is None

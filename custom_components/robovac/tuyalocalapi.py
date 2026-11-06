@@ -225,8 +225,14 @@ class Message:
             "<Device {}>".format(self.device) if self.device else None,
         )
 
+    _last_sequence = 0
+
     def set_sequence(self):
-        self.sequence = int(time.perf_counter() * 1000) & 0xFFFFFFFF
+        # Strictly increasing: a ms clock alone gives two messages built in the
+        # same ms one sequence, and the second overwrites the first's listener.
+        sequence = max(int(time.perf_counter() * 1000), Message._last_sequence + 1)
+        Message._last_sequence = sequence
+        self.sequence = sequence & 0xFFFFFFFF
 
     def hex(self):
         return self.bytes().hex()

@@ -10,3 +10,4 @@
 |---|---|---|
 | v1.0.6 | PR #3 | HA 2026.9 `VacuumEntityFeature.BATTERY` crash fix |
 | v1.0.7 | eeaae48 (PR #4) | Transport/entity refactor, socket-drop CPU spin fix |
+| v1.0.8 | 1d54606 (PR #5) | Docs restructure (CLAUDE.md index + docs/plans); Phase 02 code review fixes #1-#7 |

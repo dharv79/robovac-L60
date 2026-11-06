@@ -18,8 +18,8 @@
 from __future__ import annotations
 
 import asyncio
-import ast
 import base64
+import json
 import logging
 from datetime import timedelta
 from typing import Any
@@ -46,6 +46,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import CONF_VACS, DOMAIN, PING_RATE, REFRESH_RATE, TIMEOUT
 from .errors import getErrorMessage
+from . import tuyalocalapi
 from .robovac import ModelNotSupportedException, RoboVac
 from .tuyalocalapi import InvalidKey, TuyaException
 from .vacuums.base import RoboVacEntityFeature, RobovacCommand
@@ -54,6 +55,8 @@ _LOGGER = logging.getLogger(__name__)
 
 SCAN_INTERVAL = timedelta(seconds=REFRESH_RATE)
 UPDATE_RETRIES = 4
+WARMUP_ATTEMPTS = 5
+WARMUP_DELAY = 1.5
 
 ATTR_ERROR = "error"
 ATTR_CLEANING_AREA = "cleaning_area"
@@ -162,7 +165,10 @@ class RoboVacEntity(StateVacuumEntity):
 
         self._attr_name = item[CONF_NAME]
         self._attr_unique_id = item[CONF_ID]
-        self._attr_available = True
+        # Unavailable until the first good update (warm-up or poll).
+        self._attr_available = False
+        self._unavailable_logged = False
+        self._warmup_task: asyncio.Task | None = None
         self.ip_address: str | None = item[CONF_IP_ADDRESS]
 
         self._battery_level_cache: int | None = None
@@ -276,22 +282,25 @@ class RoboVacEntity(StateVacuumEntity):
         return data
 
     async def async_added_to_hass(self):
-        """Warm up a few polls so the entity comes up cleanly on restart."""
+        """Start the warm-up in the background so HA startup isn't delayed."""
         if self.vacuum is None:
-            self._attr_available = False
             return
 
         if not self.ip_address:
             self.error_code = "IP_ADDRESS"
-            self._attr_available = False
             return
 
-        for attempt in range(5):
+        self._warmup_task = self.hass.async_create_background_task(
+            self._async_warm_up(), name=f"robovac warm-up {self.unique_id}"
+        )
+
+    async def _async_warm_up(self) -> None:
+        """Poll a few times so the entity comes up promptly on restart."""
+        for attempt in range(WARMUP_ATTEMPTS):
+            if self.available:
+                return  # a regular poll got there first
             try:
-                await self.async_forced_update()
-                self.update_failures = 0
-                self._attr_available = True
-                return
+                await self.async_update_vacuum()
             except Exception as err:
                 _LOGGER.debug(
                     "Startup refresh attempt %s failed for %s: %s",
@@ -299,9 +308,28 @@ class RoboVacEntity(StateVacuumEntity):
                     self.unique_id,
                     err,
                 )
-                await asyncio.sleep(1.5)
+            else:
+                if self.tuyastatus is not None:
+                    self._mark_available()
+                    self.async_write_ha_state()
+                    return
+            await asyncio.sleep(WARMUP_DELAY)
 
+        self._mark_unavailable("no response during startup")
+        self.async_write_ha_state()
+
+    def _mark_available(self) -> None:
+        self.update_failures = 0
+        self._attr_available = True
+        if self._unavailable_logged:
+            _LOGGER.info("Vacuum %s is available again", self.unique_id)
+            self._unavailable_logged = False
+
+    def _mark_unavailable(self, reason: Any) -> None:
         self._attr_available = False
+        if not self._unavailable_logged:
+            _LOGGER.warning("Vacuum %s is unavailable: %s", self.unique_id, reason)
+            self._unavailable_logged = True
 
     async def async_update(self):
         """Synchronise state from the vacuum."""
@@ -309,23 +337,15 @@ class RoboVacEntity(StateVacuumEntity):
             await self.async_update_vacuum()
         except TuyaException as err:
             self.update_failures += 1
-            if self.update_failures < UPDATE_RETRIES:
-                _LOGGER.debug(
-                    "Update timeout/error for %s. Failure count: %s. Reason: %s",
-                    self.unique_id,
-                    self.update_failures,
-                    err,
-                )
-                return
-
-            _LOGGER.warning(
-                "Update errored for %s. Failure count: %s. Reason: %s",
+            _LOGGER.debug(
+                "Update timeout/error for %s. Failure count: %s. Reason: %s",
                 self.unique_id,
                 self.update_failures,
                 err,
             )
-            self.error_code = "CONNECTION_FAILED"
-            self._attr_available = False
+            if self.update_failures >= UPDATE_RETRIES:
+                self.error_code = "CONNECTION_FAILED"
+                self._mark_unavailable(err)
             return
 
         if self.tuyastatus is None:
@@ -335,8 +355,7 @@ class RoboVacEntity(StateVacuumEntity):
             )
             return
 
-        self.update_failures = 0
-        self._attr_available = True
+        self._mark_available()
 
     async def async_update_vacuum(self):
         """Fetch latest state from the vacuum."""
@@ -376,7 +395,8 @@ class RoboVacEntity(StateVacuumEntity):
             return
 
         self.tuyastatus = dps
-        _LOGGER.debug("tuyastatus %s", dps)
+        if tuyalocalapi.VERBOSE:
+            _LOGGER.debug("tuyastatus %s", dps)
 
         try:
             raw_batt = self._dps_value(RobovacCommand.BATTERY)
@@ -420,13 +440,13 @@ class RoboVacEntity(StateVacuumEntity):
         if not raw:
             return
         try:
-            consumables = ast.literal_eval(base64.b64decode(raw).decode("ascii"))
+            consumables = json.loads(base64.b64decode(raw).decode("ascii"))
             _LOGGER.debug("Consumables decoded value is: %s", consumables)
             if isinstance(consumables, dict) and "duration" in consumables.get(
                 "consumable", {}
             ):
                 self._consumables = consumables["consumable"]["duration"]
-        except (ValueError, SyntaxError, TypeError) as err:
+        except (ValueError, TypeError) as err:
             _LOGGER.debug("Failed to decode consumables for %s: %s", self.unique_id, err)
 
     def _update_cleaning_event(self) -> None:
@@ -630,6 +650,8 @@ class RoboVacEntity(StateVacuumEntity):
 
     async def async_will_remove_from_hass(self):
         """Clean up when entity is removed."""
+        if self._warmup_task is not None:
+            self._warmup_task.cancel()
         self._cancel_start()
         if self._refresh_task is not None:
             self._refresh_task.cancel()

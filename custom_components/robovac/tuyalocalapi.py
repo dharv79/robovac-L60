@@ -44,6 +44,7 @@ import asyncio
 import base64
 import json
 import logging
+import random
 import struct
 import time
 import zlib
@@ -57,6 +58,12 @@ from cryptography.hazmat.primitives.padding import PKCS7
 INITIAL_BACKOFF = 5
 INITIAL_QUEUE_TIME = 0.1
 BACKOFF_MULTIPLIER = 1.70224
+MAX_BACKOFF = 600
+BACKOFF_JITTER = 0.2
+
+# Full payloads and frame hex in debug logs. Off by default; Phase 13's
+# capture option turns it on. Otherwise debug lines carry a one-line summary.
+VERBOSE = False
 MAX_QUEUE_LENGTH = 20
 _LOGGER = logging.getLogger(__name__)
 MESSAGE_PREFIX_FORMAT = ">IIII"
@@ -182,6 +189,21 @@ def crc(data):
     return zlib.crc32(data) & 0xFFFFFFFF
 
 
+def backoff_interval(failures):
+    """Queue delay after `failures` (>3) consecutive send failures, with jitter."""
+    base = min(INITIAL_BACKOFF * (BACKOFF_MULTIPLIER ** (failures - 4)), MAX_BACKOFF)
+    return base * random.uniform(1 - BACKOFF_JITTER, 1 + BACKOFF_JITTER)
+
+
+def _log_undecodable(device, payload_data, err):
+    if VERBOSE:
+        device._LOGGER.debug("Undecodable payload %s: %s", payload_data.hex(), err)
+    else:
+        device._LOGGER.debug(
+            "Undecodable payload (%s bytes): %s", len(payload_data), err
+        )
+
+
 class Message:
     PING_COMMAND = 0x09
     GET_COMMAND = 0x0A
@@ -225,6 +247,16 @@ class Message:
             self.sequence,
             "<Device {}>".format(self.device) if self.device else None,
         )
+
+    def summary(self):
+        """One-line description for logs: command, sequence and DPS keys."""
+        dps = self.payload.get("dps") if isinstance(self.payload, dict) else None
+        keys = ",".join(sorted(map(str, dps))) if isinstance(dps, dict) else "-"
+        return f"cmd={hex(self.command)} seq={self.sequence} dps=[{keys}]"
+
+    def describe(self):
+        """Full repr when VERBOSE is on, otherwise the summary."""
+        return repr(self) if VERBOSE else self.summary()
 
     _last_sequence = 0
 
@@ -308,14 +340,12 @@ class Message:
             try:
                 payload_text = payload_data.decode("utf8")
             except UnicodeDecodeError as e:
-                device._LOGGER.debug(payload_data.hex())
-                device._LOGGER.debug(e)
+                _log_undecodable(device, payload_data, e)
                 raise MessageDecodeFailed() from e
             try:
                 payload = json.loads(payload_text)
             except json.decoder.JSONDecodeError as e:
-                device._LOGGER.debug(payload_data.hex())
-                device._LOGGER.debug(e)
+                _log_undecodable(device, payload_data, e)
                 raise MessageDecodeFailed() from e
 
         return cls(command, payload, sequence)
@@ -371,6 +401,7 @@ class TuyaDevice:
         self._backoff = False
         self._queue_interval = INITIAL_QUEUE_TIME
         self._failures = 0
+        self._backoff_ended = asyncio.Event()
         self._background_tasks: set[asyncio.Task] = set()
 
         self._queue_task = asyncio.create_task(self.process_queue())
@@ -401,26 +432,36 @@ class TuyaDevice:
                 )
                 try:
                     await self._async_send(self._queue.popleft())
-                    self._failures = 0
-                    self._queue_interval = INITIAL_QUEUE_TIME
-                    self._backoff = False
+                    self._reset_backoff()
                 except Exception as e:
                     self._failures += 1
                     self._LOGGER.debug("%s failures. Most recent: %s", self._failures, e)
                     if self._failures > 3:
+                        # Debug only: the entity logs the one unavailable warning.
                         self._backoff = True
-                        self._queue_interval = min(
-                            INITIAL_BACKOFF
-                            * (BACKOFF_MULTIPLIER ** (self._failures - 4)),
-                            600,
-                        )
-                        self._LOGGER.warning(
-                            "%s failures, backing off for %s seconds",
+                        self._queue_interval = backoff_interval(self._failures)
+                        self._LOGGER.debug(
+                            "%s failures, backing off for %.1f seconds",
                             self._failures,
                             self._queue_interval,
                         )
 
-            await asyncio.sleep(self._queue_interval)
+            # A successful push ends a backoff early (see _reset_backoff).
+            try:
+                await asyncio.wait_for(self._backoff_ended.wait(), self._queue_interval)
+            except TimeoutError:
+                pass
+            self._backoff_ended.clear()
+
+    def _reset_backoff(self):
+        """Clear failure state after a successful send or a device push."""
+        was_backing_off = self._backoff
+        self._failures = 0
+        self._queue_interval = INITIAL_QUEUE_TIME
+        self._backoff = False
+        if was_backing_off:
+            self._LOGGER.debug("%s responding again; backoff cleared", self)
+            self._backoff_ended.set()
 
     def clean_queue(self):
         now = int(time.time())
@@ -453,7 +494,9 @@ class TuyaDevice:
                 self._queue[0],
             )
             self._queue.remove(dropped)
-            self._LOGGER.warning("Send queue for %s full; dropped %r", self, dropped)
+            self._LOGGER.warning(
+                "Send queue for %s full; dropped %s", self, dropped.describe()
+            )
         self._queue.append(message)
 
     async def async_connect(self):
@@ -556,6 +599,8 @@ class TuyaDevice:
         self.last_pong = time.time()
 
     async def async_gratuitous_update_state(self, state_message):
+        # An unsolicited push proves the device is reachable.
+        self._reset_backoff()
         await self.async_update_state(state_message)
         await self.update_entity_state_cb()
 
@@ -566,7 +611,14 @@ class TuyaDevice:
             and state_message.payload.get("dps")
         ):
             self._dps.update(state_message.payload["dps"])
-            self._LOGGER.debug("Received updated state %s: %s", self, self._dps)
+            if VERBOSE:
+                self._LOGGER.debug("Received updated state %s: %s", self, self._dps)
+            else:
+                self._LOGGER.debug(
+                    "Received updated state %s: dps=[%s]",
+                    self,
+                    ",".join(sorted(map(str, state_message.payload["dps"]))),
+                )
 
     @property
     def state(self):
@@ -614,11 +666,13 @@ class TuyaDevice:
                 if self._response_task is read_task:
                     self._response_task = None
 
-            self._LOGGER.debug("Received message from %s: %s", self, message)
+            self._LOGGER.debug(
+                "Received message from %s: %s", self, message.describe()
+            )
             self._dispatch(message)
 
     async def _async_send(self, message, retries=2):
-        self._LOGGER.debug("Sending to %s: %s", self, message)
+        self._LOGGER.debug("Sending to %s: %s", self, message.describe())
         for attempt in range(retries, -1, -1):
             try:
                 await self.async_connect()

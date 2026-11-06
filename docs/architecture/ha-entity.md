@@ -18,7 +18,7 @@ State updates arrive via two paths: (1) polling — `async_update` → `async_up
 - `robovac_features` gates which extra state attributes appear in `extra_state_attributes`. A feature flag in `robovac_features` does not automatically mean the DPS code is mapped — both must be present. Raw-value attributes are table-driven via `PASSTHROUGH_ATTRIBUTES` in `vacuum.py`; add new ones there rather than as new properties.
 - Entity commands go through `_async_send_dps(*dps_dicts)`, which queues the writes and schedules one follow-up state refresh, skipped if one is already pending (exceptions from that refresh are caught and logged).
 - The integration uses `iot_class: local_polling` but also receives gratuitous push updates from the device via `async_gratuitous_update_state`.
-- After 4 consecutive update failures (`UPDATE_RETRIES`), the entity is marked unavailable. On startup, `async_added_to_hass` makes up to 5 warm-up attempts (1.5 s apart) before giving up — this handles the L60's tendency to sleep and not respond immediately.
+- After 4 consecutive update failures (`UPDATE_RETRIES`), the entity is marked unavailable. On startup, a background warm-up task makes up to 5 attempts (1.5 s apart) before giving up — this handles the L60's tendency to sleep and not respond immediately. See "Startup and availability" below.
 
 ## Start while paused sends resume (06/11/2026)
 
@@ -34,3 +34,11 @@ Verified on Dobby: `AggP` (STOP_GOHOME, method 15) stops a return to dock and le
 - `_async_wait_until_cleaning` waits on `self._cleaning`, an `asyncio.Event` kept in step with activity CLEANING by `_update_cleaning_event()` at the end of `update_entity_values`; no polling.
 - `_schedule_refresh` keeps a single `self._refresh_task`. A write made while a refresh is pending relies on the device's push update rather than a second GET.
 - Teardown cancels the start and refresh tasks.
+
+## Startup and availability (06/11/2026, Phase 05)
+
+- The entity starts unavailable and becomes available on the first update that returns DPS, from the warm-up or a regular poll.
+- `async_added_to_hass` starts `_async_warm_up` with `hass.async_create_background_task` and returns at once, so a powered-off vacuum doesn't delay HA startup. The warm-up stops early if a poll already made the entity available. `async_will_remove_from_hass` cancels it.
+- Log once: `_mark_unavailable` logs one `warning` when the entity goes unavailable (warm-up exhausted, or `UPDATE_RETRIES` failed polls), and `_mark_available` logs one `info` when it recovers. Individual failures log at debug.
+- Consumables are decoded with `json.loads`, not `ast.literal_eval`. No model currently has both the `CONSUMABLES` feature and a mapped DPS code, so this path doesn't run yet; a Python-literal payload (single quotes) would be logged at debug and ignored.
+- The full `tuyastatus` debug line only appears when `tuyalocalapi.VERBOSE` is on; the one-line "Decoded ..." summary is always logged.

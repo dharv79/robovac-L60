@@ -36,6 +36,7 @@ from .tuyalocaldiscovery import TuyaLocalDiscovery
 PLATFORMS = [
     Platform.VACUUM,
     Platform.SENSOR,
+    Platform.BINARY_SENSOR,
     Platform.SWITCH,
     Platform.BUTTON,
     Platform.SELECT,

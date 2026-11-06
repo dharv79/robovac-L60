@@ -55,6 +55,25 @@
             "suction_level": {
                 "name": "Suction level"
             }
+        },
+        "binary_sensor": {
+            "docked": {
+                "name": "Docked"
+            },
+            "charging": {
+                "name": "Charging"
+            },
+            "connected": {
+                "name": "Connected"
+            }
+        },
+        "sensor": {
+            "status": {
+                "name": "Status"
+            },
+            "last_seen": {
+                "name": "Last seen"
+            }
         }
     },
     "services": {

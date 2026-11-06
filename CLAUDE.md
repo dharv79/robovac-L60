@@ -12,7 +12,7 @@ Guidance for Claude Code when working in this repository.
 
 ## What This Is
 
-Home Assistant custom integration (HACS) for Eufy RoboVac vacuums, focused on the L60. Local control over the Tuya local protocol (TCP 6668, AES); Eufy/Tuya cloud is used only at setup to fetch the device `localKey`. Python, async, no dependencies beyond HA. Registers `vacuum`, `sensor`, `switch`, `button` and `select` platforms per vacuum.
+Home Assistant custom integration (HACS) for Eufy RoboVac vacuums, focused on the L60. Local control over the Tuya local protocol (TCP 6668, AES); Eufy/Tuya cloud is used only at setup to fetch the device `localKey`. Python, async, no dependencies beyond HA. Registers `vacuum`, `sensor`, `binary_sensor`, `switch`, `button` and `select` platforms per vacuum.
 
 ## Code map (`custom_components/robovac/`)
 
@@ -22,7 +22,8 @@ Home Assistant custom integration (HACS) for Eufy RoboVac vacuums, focused on th
 - `eufywebapi.py` / `tuyawebapi.py` — cloud login at config-flow time only.
 - `vacuum.py` — `RoboVacEntity`: state decoding, commands, polling + push.
 - `coordinator.py` — `RoboVacCoordinator` per vacuum: owns the `RoboVac` device, parses state once into `RoboVacData`, publishes pushes; fallback poll + watchdog. Also the status/error mappings.
-- `sensor.py` — battery sensor (a `CoordinatorEntity`) reading `coordinator.data.battery`.
+- `sensor.py` — battery, status and last-seen sensors (`CoordinatorEntity`s); battery reads `coordinator.data.battery`.
+- `binary_sensor.py` — docked, charging, connected (socket state via `TuyaDevice.connection_cb`).
 - `entity.py`, `switch.py`, `button.py`, `select.py` — Boost IQ switch, stop-return and locate buttons, suction select (`CoordinatorEntity`s); writes via `coordinator.async_send_dps`. Services in `services.yaml` (`start_new_clean`, `auto_clean`).
 - `config_flow.py` — credential flow + per-vacuum options (IP, autodiscovery).
 - `__init__.py` — starts discovery; `entry.runtime_data` = `{vac_id: coordinator}`; an IP change reconnects only that vacuum (no reload).

@@ -173,7 +173,9 @@ class RoboVacEntity(StateVacuumEntity):
         self._mode: str | None = None
         self._consumables: Any = None
         self._passthrough: dict[str, Any] = {}
-        self._refresh_tasks: set[asyncio.Task] = set()
+        self._refresh_task: asyncio.Task | None = None
+        self._start_task: asyncio.Task | None = None
+        self._cleaning = asyncio.Event()
 
         model_code = item[CONF_MODEL] or ""
         try:
@@ -402,6 +404,8 @@ class RoboVacEntity(StateVacuumEntity):
         if self._supports(RoboVacEntityFeature.CONSUMABLES):
             self._update_consumables(self._dps_value(RobovacCommand.CONSUMABLES))
 
+        self._update_cleaning_event()
+
         _LOGGER.debug(
             "Decoded %s: state=%s error=%s mode=%s fan=%s battery=%s",
             self.unique_id,
@@ -425,10 +429,24 @@ class RoboVacEntity(StateVacuumEntity):
         except (ValueError, SyntaxError, TypeError) as err:
             _LOGGER.debug("Failed to decode consumables for %s: %s", self.unique_id, err)
 
+    def _update_cleaning_event(self) -> None:
+        if self.activity == VacuumActivity.CLEANING:
+            self._cleaning.set()
+        else:
+            self._cleaning.clear()
+
     def _schedule_refresh(self) -> None:
-        task = asyncio.create_task(self._async_refresh_after_command())
-        self._refresh_tasks.add(task)
-        task.add_done_callback(self._refresh_tasks.discard)
+        # One refresh per command burst: a pending refresh covers later writes,
+        # and the L60 pushes its status changes anyway.
+        if self._refresh_task is not None and not self._refresh_task.done():
+            return
+        self._refresh_task = asyncio.create_task(self._async_refresh_after_command())
+
+    def _cancel_start(self) -> None:
+        task, self._start_task = self._start_task, None
+        if task is not None and not task.done() and task is not asyncio.current_task():
+            _LOGGER.debug("Cancelling start sequence for %s", self.unique_id)
+            task.cancel()
 
     async def _async_refresh_after_command(self) -> None:
         try:
@@ -447,6 +465,9 @@ class RoboVacEntity(StateVacuumEntity):
     async def _async_set_mode(self, value: str) -> None:
         if self.vacuum is None:
             return
+        # Any mode command from outside the start sequence supersedes it.
+        if asyncio.current_task() is not self._start_task:
+            self._cancel_start()
         await self._async_send_dps({self._tuya_command_codes[RobovacCommand.MODE]: value})
 
     async def async_locate(self, **kwargs):
@@ -468,18 +489,18 @@ class RoboVacEntity(StateVacuumEntity):
         # (needs RESUME_TASK "AggO") or returning to dock (needs STOP_GOHOME
         # "AggP" first). Its GET reply has no status DPS, so after an HA restart
         # the state can be unknown: then escalate until it reports cleaning.
-        # Runs in the background so the service call returns at once.
-        task = asyncio.create_task(self._async_start_sequence())
-        self._refresh_tasks.add(task)
-        task.add_done_callback(self._refresh_tasks.discard)
+        # Runs in the background so the service call returns at once; any other
+        # mode command cancels it (_async_set_mode).
+        if self._start_task is not None and not self._start_task.done():
+            _LOGGER.debug("Start already in progress for %s", self.unique_id)
+            return
+        self._start_task = asyncio.create_task(self._async_start_sequence())
 
     async def _async_wait_until_cleaning(self, timeout: float = START_CONFIRM_TIMEOUT) -> bool:
-        loop = asyncio.get_running_loop()
-        deadline = loop.time() + timeout
-        while loop.time() < deadline:
-            if self.activity == VacuumActivity.CLEANING:
-                return True
-            await asyncio.sleep(0.25)
+        try:
+            await asyncio.wait_for(self._cleaning.wait(), timeout)
+        except TimeoutError:
+            return False
         return self.activity == VacuumActivity.CLEANING
 
     async def _async_start_sequence(self) -> None:
@@ -601,14 +622,17 @@ class RoboVacEntity(StateVacuumEntity):
                     self.unique_id,
                     params.get("value", ""),
                 )
+            if str(command) == self._tuya_command_codes.get(RobovacCommand.MODE):
+                self._cancel_start()
             updates = [{command: params.get("value", "")}]
 
         await self._async_send_dps(*updates)
 
     async def async_will_remove_from_hass(self):
         """Clean up when entity is removed."""
-        for task in self._refresh_tasks:
-            task.cancel()
+        self._cancel_start()
+        if self._refresh_task is not None:
+            self._refresh_task.cancel()
         if self.vacuum is not None:
             await self.vacuum.async_disable()
 

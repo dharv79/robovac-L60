@@ -57,6 +57,7 @@ from cryptography.hazmat.primitives.padding import PKCS7
 INITIAL_BACKOFF = 5
 INITIAL_QUEUE_TIME = 0.1
 BACKOFF_MULTIPLIER = 1.70224
+MAX_QUEUE_LENGTH = 20
 _LOGGER = logging.getLogger(__name__)
 MESSAGE_PREFIX_FORMAT = ">IIII"
 MESSAGE_SUFFIX_FORMAT = ">II"
@@ -426,6 +427,35 @@ class TuyaDevice:
         if any(item.expiry <= now for item in self._queue):
             self._queue = deque(item for item in self._queue if item.expiry > now)
 
+    def _enqueue(self, message):
+        """Queue a message, replacing stale SETs and keeping the queue bounded."""
+        self.clean_queue()
+        if message.command == Message.SET_COMMAND:
+            # An unsent SET whose DPS are all overwritten by this one is stale.
+            new_codes = set(message.payload["dps"])
+            kept = deque(
+                item
+                for item in self._queue
+                if item.command != Message.SET_COMMAND
+                or not set(item.payload["dps"]) <= new_codes
+            )
+            if len(kept) != len(self._queue):
+                self._LOGGER.debug(
+                    "Replaced %s queued SET(s) for DPS %s",
+                    len(self._queue) - len(kept),
+                    sorted(new_codes),
+                )
+                self._queue = kept
+        while len(self._queue) >= MAX_QUEUE_LENGTH:
+            # Prefer dropping a message nobody is waiting on (ping/SET).
+            dropped = next(
+                (item for item in self._queue if not item.expect_response),
+                self._queue[0],
+            )
+            self._queue.remove(dropped)
+            self._LOGGER.warning("Send queue for %s full; dropped %r", self, dropped)
+        self._queue.append(message)
+
     async def async_connect(self):
         if self._connected or not self._enabled:
             return
@@ -487,7 +517,7 @@ class TuyaDevice:
         message = Message(
             Message.GET_COMMAND, payload, encrypt=self._encrypt, device=self
         )
-        self._queue.append(message)
+        self._enqueue(message)
         response = await self.async_receive(message)
         await self.async_update_state(response)
 
@@ -500,7 +530,7 @@ class TuyaDevice:
             device=self,
             expect_response=False,
         )
-        self._queue.append(message)
+        self._enqueue(message)
 
     async def async_ping(self, ping_interval):
         while self._enabled:
@@ -508,7 +538,7 @@ class TuyaDevice:
                 self._LOGGER.debug("Currently in backoff, not adding ping to queue")
             else:
                 self.last_ping = time.time()
-                self._queue.append(
+                self._enqueue(
                     Message(
                         Message.PING_COMMAND,
                         sequence=0,

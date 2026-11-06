@@ -25,7 +25,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import RoboVacConfigEntry
 from .const import DOMAIN
-from .coordinator import STATUS_MAPPING, RoboVacCoordinator
+from .coordinator import PROMPT_TEXT, STATUS_MAPPING, RoboVacCoordinator
 from .entity import RoboVacBaseEntity
 from .vacuums.base import RobovacCommand
 
@@ -45,6 +45,8 @@ async def async_setup_entry(
             entities.append(LastSeenSensor(coordinator))
             if RobovacCommand.STATUS in coordinator.command_codes:
                 entities.append(StatusSensor(coordinator))
+            if RobovacCommand.LAST_PROMPT in coordinator.command_codes:
+                entities.append(LastPromptSensor(coordinator))
     async_add_entities(entities)
 
 
@@ -118,3 +120,27 @@ class LastSeenSensor(RoboVacBaseEntity, SensorEntity):
     @property
     def native_value(self) -> datetime | None:
         return self.coordinator.last_seen
+
+
+class LastPromptSensor(RoboVacBaseEntity, SensorEntity):
+    """The vacuum's last spoken prompt (DPS 178), e.g. "Can't start while recharging"."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: RoboVacCoordinator) -> None:
+        super().__init__(coordinator, "last_prompt")
+
+    def _code(self) -> int | None:
+        return self.coordinator.data.last_prompt if self.coordinator.data else None
+
+    @property
+    def native_value(self) -> str | None:
+        code = self._code()
+        if code is None:
+            return None
+        return PROMPT_TEXT.get(code, f"code {code}")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, int] | None:
+        code = self._code()
+        return None if code is None else {"code": code}

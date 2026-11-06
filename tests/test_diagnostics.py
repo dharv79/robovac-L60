@@ -116,10 +116,9 @@ async def test_capture_logs_changes_and_stops(hass, caplog):
         coordinator.update_from_device()
         coordinator.update_from_device()  # unchanged: no further lines
     lines = [r.message for r in caplog.records if r.message.startswith("capture ")]
-    assert lines == [
-        f"capture dobby-id DPS 153: {CLEANING} → {CHARGING}",
-        "capture dobby-id DPS 157: None → dnd",
-    ]
+    assert len(lines) == 2
+    assert lines[0].startswith(f"capture dobby-id DPS 153: {CLEANING} → {CHARGING}")
+    assert lines[1] == "capture dobby-id DPS 157: None → dnd"  # not decodable
     coordinator.async_set_capture(False)
     assert tuyalocalapi.VERBOSE is False
     caplog.clear()

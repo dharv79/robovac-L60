@@ -85,7 +85,8 @@ class T2320:
         #    LwoAGgBSCBoAIgIIASoAWFZiHQobChFBIG5ldHdvcmsgZm9yIHlvdRoGEPvagrUG
         #    LwoAGgBSCBoAIgIIASoAWCJiHQobChFBIG5ldHdvcmsgZm9yIHlvdRoGEK2YgLUG
         #    LwoAGgBSCBoAIgIIASoAWDBiHQobChFBIG5ldHdvcmsgZm9yIHlvdRoGEK2YgLUG
-        # Unknown: 178
+        RobovacCommand.LAST_PROMPT: 178,    # protobuf: field 2 byte = prompt code
+        # Samples for 178:
         #    DQjRidjfv9bszgESAR8=
         #    DQiMrPbd+eLszgESAVU=
         #    DQiW0dXL+uLszgESAR8=

@@ -33,6 +33,7 @@ class RobovacCommand(StrEnum):
     DO_NOT_DISTURB = "do_not_disturb"
     BOOST_IQ = "boost_iq"
     CONSUMABLES = "consumables"
+    LAST_PROMPT = "last_prompt"
 
 
 class ModeKey(StrEnum):

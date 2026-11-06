@@ -22,7 +22,10 @@ From the 06/11/2026 brainstorm (features: decoder for the L60's encoded values, 
 - [ ] DPS 178 field layout documented in `docs/architecture/models.md` as a dated section.
 
 ## Status
-Planned, not built.
+In progress (draft PR). Acceptance 2 is partly met: only code 31 has text; 85 and 40 show as `code N` until captured.
 
 ## Size
 M, ~50-85k.
+
+## Built (06/11/2026)
+`proto.py` codec with round-trip tests for all listed values; `LAST_PROMPT` (DPS 178) added to the eight L60 models; `LastPromptSensor`; capture log shows decoded protobuf. DPS 178 layout in `models.md`. Open: names for codes 85 and 40, and a third captured prompt (acceptance 2).

@@ -16,3 +16,5 @@
 | v1.0.11 | 268423e (PR #8) | `vacuum.start` escalates start → resume (`AggO`) → stop return to dock (`AggP`) + start, so it works while paused, returning, or with unknown state after an HA restart |
 | v1.0.12 | 973920f (PRs #9-#12) | Phases 04-07: start-sequence cancel and one refresh per burst; background warm-up, backoff jitter, quieter logs; restored state and DPS 152/153 query on connect; test suite and CI |
 | v1.0.13 | 5b4a03b (PR #13) | Phase 08 security sweep: local key removed from device repr and logs, Eufy password no longer stored (config entry v2 migration), IP changes applied only after an authenticated probe, HTTPS/timeouts on cloud calls, CI secret scanning and hardened workflows |
+| v1.0.14 | 8ed3785 (PRs #14-#17) | Phases 09-12: per-model command data, per-vacuum coordinator, control entities and services, status and connectivity entities |
+| v1.0.15 | 6e33657 (PR #18) | `send_command doNotDisturb` ignored when DPS 157 is not boolean (L60 protobuf value) |

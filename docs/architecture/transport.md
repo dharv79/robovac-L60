@@ -15,3 +15,7 @@ Communication layers, bottom to top. Moved verbatim from CLAUDE.md (26/09/2026).
 ## Socket-drop CPU spin fix (v1.0.7, PR #4)
 
 The reader previously retried the read on EOF, which busy-spun the event loop when the L60 slept and dropped the socket. It now disconnects on EOF/reset; the next queued send reconnects. Loop tasks are tracked and cancelled by `async_disable`. Not yet verified on a live HA instance at release time.
+
+## Duplicate sequence numbers after a command (06/11/2026)
+
+Every entity command queued two GETs in the same millisecond: HA's post-service update of a polling entity, plus `_schedule_refresh`. `Message.set_sequence` used `perf_counter` milliseconds, so both got the same sequence. The second overwrote the first's entry in `_listeners`, the first waiter never got a reply, and after `TIMEOUT` (10 s) it disconnected and HA logged "Update of vacuum.… is taking over 10 seconds". Seen in the user's debug log at 09:57:07: start command acked, two GETs with sequence 744183316. Sequences are now strictly increasing.

@@ -1,7 +1,7 @@
-# Phase 19 — Type hints and type checking
+# Phase 20 — Type hints and type checking
 
 ## Scope
-From the 06/11/2026 brainstorm (improvement: type hints + type checking). Done late so it covers the code as reshaped by Phases 08-18.
+From the 06/11/2026 brainstorm (improvement: type hints + type checking). Done late so it covers the code as reshaped by Phases 08-19.
 
 ## Design
 - Annotate `tuyalocalapi.py` (`Message`, `TuyaCipher`, `TuyaDevice`), `robovac.py`, `vacuum.py` and the coordinator.

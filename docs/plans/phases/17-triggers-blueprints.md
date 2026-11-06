@@ -1,12 +1,12 @@
-# Phase 16 — Device triggers and blueprints
+# Phase 17 — Device triggers and blueprints
 
 ## Scope
-From the 06/11/2026 brainstorm (features: device triggers, bundled blueprints). Uses Phase 15's events.
+From the 06/11/2026 brainstorm (features: device triggers, bundled blueprints). Uses Phase 16's events.
 
 ## Design
 - **`device_trigger.py`**: `cleaning_started`, `cleaning_finished`, `docked`, `error`, so they're selectable in the UI automation editor.
-  - Event-based triggers come from Phase 15's events.
-  - `docked` comes from Phase 11's binary sensor.
+  - Event-based triggers come from Phase 16's events.
+  - `docked` comes from Phase 12's binary sensor.
   - Strings in `strings.json` → `device_automation.trigger_type`.
 - **Blueprints** in `blueprints/automation/robovac/` (repo root, linked from the README for one-click import; HACS doesn't install them):
   - notify when stuck/error;

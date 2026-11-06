@@ -1,4 +1,4 @@
-# Phase 15 — Cleaning events and history sensors
+# Phase 16 — Cleaning events and history sensors
 
 ## Scope
 From the 06/11/2026 brainstorm (features: cleaning events, cleaning count and last-cleaned sensors).

@@ -1,4 +1,4 @@
-# Phase 08 — Per-model command data
+# Phase 09 — Per-model command data
 
 ## Scope
 From the 06/11/2026 brainstorm (improvements: L60 codes into model files, per-model status/mode tables). Done after Phase 07 so the tests catch regressions.

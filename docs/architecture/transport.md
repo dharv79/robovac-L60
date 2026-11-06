@@ -23,3 +23,10 @@ Every entity command queued two GETs in the same millisecond: HA's post-service 
 ## Bounded send queue (06/11/2026, Phase 04)
 
 All queue appends go through `TuyaDevice._enqueue`. It drops expired messages, then removes any unsent SET whose DPS codes are all overwritten by the new SET (a SET touching other codes too is kept), and caps the queue at `MAX_QUEUE_LENGTH` (20), dropping the oldest message nobody waits on (ping/SET) first and logging a warning. The 0.25 s sleep in `_async_send` is a retry pause, not a response wait; responses already wait on a per-sequence semaphore.
+
+## Backoff and debug logging (06/11/2026, Phase 05)
+
+- After more than 3 consecutive send failures the queue backs off: `backoff_interval(failures)` = `5 × 1.70224^(failures−4)` s, capped at `MAX_BACKOFF` (600 s), then ±20% jitter (`BACKOFF_JITTER`), so the longest wait is 720 s.
+- `_reset_backoff()` clears the failure count, interval and backoff flag. It runs after a successful send and on every gratuitous push (a push proves the device is reachable). If a backoff was active it sets `_backoff_ended`, which wakes `process_queue` from its sleep straight away.
+- Backoff start and end log at debug only; the entity logs the single unavailable/recovered pair.
+- `VERBOSE` (module-level, default `False`) gates full payloads in debug logs. Off: `Message.describe()` returns `summary()` (`cmd=0x7 seq=N dps=[152,5]`, keys only), state updates log DPS keys, and undecodable payloads log their length. On: full `repr`, full `_dps` and payload hex. Phase 13's capture option will set it.

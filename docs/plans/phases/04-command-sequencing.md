@@ -51,7 +51,7 @@ On-device checks, still open:
 - [ ] The debug log shows one follow-up GET per command burst.
 
 ## Status
-Built; on-device checks open.
+Done, merged (cfe88d3, PR #9). On-device checks open.
 
 ## Built (06/11/2026)
 - Code and docs are as listed above.

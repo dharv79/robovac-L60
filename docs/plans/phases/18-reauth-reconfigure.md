@@ -1,4 +1,4 @@
-# Phase 17 — Reauth / reconfigure flow + IP connection test (Phase 03 idea #2; was Phase 06)
+# Phase 18 — Reauth / reconfigure flow + IP connection test (Phase 03 idea #2; was Phase 06)
 
 ## Scope
 Refresh Eufy credentials and each vacuum's localKey without deleting and re-adding the integration, keeping per-vacuum options and entity IDs. Extended 06/11/2026 with the brainstorm's "test the connection when changing the IP" feature.

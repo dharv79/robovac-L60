@@ -1,7 +1,7 @@
-# Phase 09 — Shared coordinator and modern HA patterns
+# Phase 10 — Shared coordinator and modern HA patterns
 
 ## Scope
-From the 06/11/2026 brainstorm (improvements: shared coordinator, `entry.runtime_data`, modern entity naming, poll only as fallback, per-vacuum IP update). Supersedes Phase 03 idea #5. Done before the new entity phases (10-16) so they're all built on it.
+From the 06/11/2026 brainstorm (improvements: shared coordinator, `entry.runtime_data`, modern entity naming, poll only as fallback, per-vacuum IP update). Supersedes Phase 03 idea #5. Done before the new entity phases (11-17) so they're all built on it.
 
 ## Design
 - **`RoboVacCoordinator(DataUpdateCoordinator)`** per vacuum:

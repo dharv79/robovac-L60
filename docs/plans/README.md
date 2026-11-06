@@ -1,13 +1,15 @@
 # Plans index
 
 ## Context
-Home Assistant integration for Eufy RoboVac (L60 focus). No multi-phase plan is active; add phases here when one starts.
+Home Assistant integration for Eufy RoboVac (L60 focus). Active plan: review the codebase, fix what the review finds, and brainstorm new features.
 
 ## Phase status
 
 | Phase | Status | Size / tokens |
 |---|---|---|
-| _(none)_ | — | — |
+| 01 Code review & audit | In progress (findings written, not merged) | S, ~25k actual |
+| 02 Apply review fixes | Planned, not built | M, ~40-70k |
+| 03 Feature ideas (20) | In progress (ideas written, not merged) | S, ~20k actual |
 
 ## Decisions locked in with the user (do not re-litigate)
 - Releases go through the `release/vX.Y.Z` branch workflow; version and target commit are confirmed with the user first.

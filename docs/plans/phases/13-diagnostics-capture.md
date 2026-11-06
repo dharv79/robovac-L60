@@ -25,7 +25,10 @@ Add HA's "Download diagnostics" (Settings → Devices & services → Robovac →
 - [ ] `python -m py_compile` passes; `docs/architecture/ha-entity.md` mentions diagnostics.
 
 ## Status
-In progress (draft PR).
+Done, merged (c8f9ada, PR #20).
 
 ## Size
 M, ~40-65k. Re-estimated 06/11/2026 (was S, ~20-35k): `get_dps` service and capture mode added.
+
+## Built (06/11/2026)
+`diagnostics.py`; `robovac.get_dps` (entity service, response-only); per-vacuum `capture_mode` option applied live (`LIVE_KEYS`), logging `code: old → new` and enabling transport VERBOSE while any vacuum captures. Tests in `tests/test_diagnostics.py` (287 total). On-device checks open: download the dump, `get_dps` for 157/159, capture a DND change.

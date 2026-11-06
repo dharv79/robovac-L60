@@ -76,6 +76,9 @@
             },
             "last_seen": {
                 "name": "Last seen"
+            },
+            "last_prompt": {
+                "name": "Last prompt"
             }
         }
     },

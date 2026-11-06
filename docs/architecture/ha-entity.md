@@ -80,3 +80,5 @@ Verified on Dobby: `AggP` (STOP_GOHOME, method 15) stops a return to dock and le
 - `robovac.get_dps` (entity service on the vacuum, `SupportsResponse.ONLY`): forces a GET and returns `{"dps": {...}}`, optionally filtered by `codes`. Failures raise `HomeAssistantError`.
 - Capture mode: per-vacuum option (`capture_mode`, default off) stored in the vacuum's config data. `update_listener` applies it live (`LIVE_KEYS`, like the IP), so toggling never reloads. While on, `_parse` logs each DPS change at info as `capture <id> DPS <code>: old → new`, and `tuyalocalapi.VERBOSE` stays on while any vacuum is capturing. Shutdown turns it off. Protobuf-decoded text joins the log when Phase 14 lands.
 
+## Last prompt sensor (Phase 14, 06/11/2026)
+`LastPromptSensor` (diagnostic, text) shows DPS 178 as text via `PROMPT_TEXT`, or `code N` when unnamed, with a `code` attribute. `RoboVacData.last_prompt` keeps the previous value when a push lacks 178 or carries no code. Capture mode logs decoded protobuf for any DPS that decodes. Layout: `models.md`.

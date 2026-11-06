@@ -41,6 +41,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
 from . import tuyalocalapi
+from .proto import ProtoError, decode_prefixed, try_decode
 from .const import CONF_CAPTURE, DOMAIN, PING_RATE, REFRESH_RATE, TIMEOUT
 from .robovac import ModelNotSupportedException, RoboVac
 from .tuyalocalapi import InvalidKey, TuyaException
@@ -129,6 +130,12 @@ PASSTHROUGH_ATTRIBUTES = (
 
 NO_ERROR_CODES = (0, "no_error", None)
 
+# DPS 178 prompt codes seen on the L60 (field 2 of the message). Unknown codes
+# show as "code N" until a capture names them.
+PROMPT_TEXT = {
+    31: "Can't start while recharging",
+}
+
 # Vacuums in capture mode. Transport VERBOSE logging is module-wide, so it stays
 # on while any vacuum is capturing.
 _CAPTURING: set[str] = set()
@@ -148,6 +155,7 @@ class RoboVacData:
     battery: int | None = None
     fan_speed: str | None = None
     consumables: Any = None
+    last_prompt: int | None = None  # DPS 178 prompt code
     passthrough: dict[str, Any] = field(default_factory=dict)
 
 
@@ -254,7 +262,15 @@ class RoboVacCoordinator(DataUpdateCoordinator[RoboVacData]):
         for code in sorted(dps, key=str):
             old = self._capture_dps.get(code)
             if code not in self._capture_dps or old != dps[code]:
-                _LOGGER.info("capture %s DPS %s: %s → %s", self.vacuum_id, code, old, dps[code])
+                decoded = try_decode(dps[code])
+                _LOGGER.info(
+                    "capture %s DPS %s: %s → %s%s",
+                    self.vacuum_id,
+                    code,
+                    old,
+                    dps[code],
+                    f" (decoded {decoded})" if decoded is not None else "",
+                )
         self._capture_dps = dict(dps)
 
     # --- device ---------------------------------------------------------
@@ -493,8 +509,12 @@ class RoboVacCoordinator(DataUpdateCoordinator[RoboVacData]):
             consumables = _decode_consumables(
                 value(RobovacCommand.CONSUMABLES), consumables, self.vacuum_id
             )
+        # The last prompt stays until a newer one arrives.
+        previous_prompt = self.data.last_prompt if self.data else None
+        prompt = decode_prompt(value(RobovacCommand.LAST_PROMPT))
         data = RoboVacData(
             dps=dps,
+            last_prompt=prompt if prompt is not None else previous_prompt,
             status=STATUS_MAPPING.get(self.status_values.get(value(RobovacCommand.STATUS))),
             error=ERROR_MAPPING.get(value(RobovacCommand.ERROR), "no_error"),
             mode=self.mode_labels.get(raw_mode, raw_mode),
@@ -524,6 +544,17 @@ class RoboVacCoordinator(DataUpdateCoordinator[RoboVacData]):
             data.battery,
         )
         return data
+
+
+def decode_prompt(raw: Any) -> int | None:
+    """Prompt code from a DPS 178 value (first byte of field 2), else None."""
+    if not isinstance(raw, str) or not raw:
+        return None
+    try:
+        field = decode_prefixed(raw, nested=False).get(2)
+    except ProtoError:
+        return None
+    return field[0] if isinstance(field, bytes) and field else None
 
 
 def _decode_consumables(raw: Any, previous: Any, vacuum_id: str) -> Any:

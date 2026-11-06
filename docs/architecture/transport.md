@@ -19,3 +19,7 @@ The reader previously retried the read on EOF, which busy-spun the event loop wh
 ## Duplicate sequence numbers after a command (06/11/2026)
 
 Every entity command queued two GETs in the same millisecond: HA's post-service update of a polling entity, plus `_schedule_refresh`. `Message.set_sequence` used `perf_counter` milliseconds, so both got the same sequence. The second overwrote the first's entry in `_listeners`, the first waiter never got a reply, and after `TIMEOUT` (10 s) it disconnected and HA logged "Update of vacuum.… is taking over 10 seconds". Seen in the user's debug log at 09:57:07: start command acked, two GETs with sequence 744183316. Sequences are now strictly increasing.
+
+## Bounded send queue (06/11/2026, Phase 04)
+
+All queue appends go through `TuyaDevice._enqueue`. It drops expired messages, then removes any unsent SET whose DPS codes are all overwritten by the new SET (a SET touching other codes too is kept), and caps the queue at `MAX_QUEUE_LENGTH` (20), dropping the oldest message nobody waits on (ping/SET) first and logging a warning. The 0.25 s sleep in `_async_send` is a retry pause, not a response wait; responses already wait on a per-sequence semaphore.

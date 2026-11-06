@@ -54,6 +54,7 @@ Home Assistant custom integration (HACS) for Eufy RoboVac vacuums, focused on th
 - Entity commands go through `_async_send_dps(*dps_dicts)` (one follow-up refresh).
 - Add raw-value attributes to `PASSTHROUGH_ATTRIBUTES`, not new properties; they need both a `robovac_features` flag and a mapped DPS code.
 - `localtuya` may hold UDP 6666/6667 and break autodiscovery.
+- New source files start with the Apache 2.0 header used in `sensor.py` (Copyright 2022 Brendan McCluskey, Copyright (c) 2026 Dave Harvey).
 
 ## Run / test
 

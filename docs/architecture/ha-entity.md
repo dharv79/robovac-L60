@@ -16,7 +16,7 @@ State updates arrive via two paths: (1) polling — `async_update` → `async_up
 
 - Battery level is **not** set on the vacuum entity — it lives in `_battery_level_cache` and is read by the separate sensor entity. This is intentional to avoid HA deprecation warnings.
 - `robovac_features` gates which extra state attributes appear in `extra_state_attributes`. A feature flag in `robovac_features` does not automatically mean the DPS code is mapped — both must be present. Raw-value attributes are table-driven via `PASSTHROUGH_ATTRIBUTES` in `vacuum.py`; add new ones there rather than as new properties.
-- Entity commands go through `_async_send_dps(*dps_dicts)`, which queues the writes and schedules exactly one follow-up state refresh (exceptions from that refresh are caught and logged).
+- Entity commands go through `_async_send_dps(*dps_dicts)`, which queues the writes and schedules one follow-up state refresh, skipped if one is already pending (exceptions from that refresh are caught and logged).
 - The integration uses `iot_class: local_polling` but also receives gratuitous push updates from the device via `async_gratuitous_update_state`.
 - After 4 consecutive update failures (`UPDATE_RETRIES`), the entity is marked unavailable. On startup, `async_added_to_hass` makes up to 5 warm-up attempts (1.5 s apart) before giving up — this handles the L60's tendency to sleep and not respond immediately.
 
@@ -27,3 +27,10 @@ On the L60, DPS 152 is a protobuf `ModeCtrl` method: `AggN` = PAUSE_TASK (13), `
 ## Start escalation for unknown / returning states (06/11/2026)
 
 Verified on Dobby: `AggP` (STOP_GOHOME, method 15) stops a return to dock and leaves it in Standby; `BBoCCAE=` from Standby starts cleaning; `AggO` resumes a pause. The L60's GET reply carries no 152/153, so after an HA restart `tuya_state` is `None` until Dobby pushes a change, and v1.0.10's paused check could not fire. `async_start` now runs `_async_start_sequence` as a background task: start (unless paused/returning) → resume (if paused or unknown) → stop-gohome + start (if returning or unknown), each step waiting up to `START_CONFIRM_TIMEOUT` (4 s) for activity CLEANING, and logs a warning if nothing worked. Dobby also returns to dock on its own a few minutes after a pause or stop (seen 10:28 and 10:33, no HA command).
+
+## Command sequencing (06/11/2026, Phase 04)
+
+- The start sequence runs in `self._start_task`. Any mode command from outside it cancels it: `_async_set_mode` (pause, dock/stop, spot, edge/small-room/autoClean) and a raw `send_command` to the mode DPS. Fan speed, locate and Boost IQ don't conflict with DPS 152 and don't cancel it. A second `async_start` while one runs is a no-op.
+- `_async_wait_until_cleaning` waits on `self._cleaning`, an `asyncio.Event` kept in step with activity CLEANING by `_update_cleaning_event()` at the end of `update_entity_values`; no polling.
+- `_schedule_refresh` keeps a single `self._refresh_task`. A write made while a refresh is pending relies on the device's push update rather than a second GET.
+- Teardown cancels the start and refresh tasks.

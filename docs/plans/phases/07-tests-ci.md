@@ -15,6 +15,7 @@ Add a test suite and a CI workflow so the binding process's "green CI" step actu
     - #7: each `ROBOVAC_MODELS` key equals its class name and is 5 chars.
   - `vacuum.py`: state/activity mapping from a fake DPS dict; `async_send_command("boostIQ")` writes `{"159": <toggled bool>}` for an L60 class; unsupported models no-op.
   - `config_flow.py`: user step with the Eufy/Tuya cloud calls mocked (success, `invalid_auth`, `cannot_connect`).
+  - Start escalation: turn the scratch start-sequence simulation (6 cases, plus Phase 04's cancel case) into tests for `_async_start_sequence` with a fake device that reports state pushes.
 - Update `docs/architecture/testing.md` and the CLAUDE.md "Run / test" section.
 
 ## Acceptance criteria
@@ -26,4 +27,4 @@ Add a test suite and a CI workflow so the binding process's "green CI" step actu
 Planned, not built.
 
 ## Size
-L, ~90-140k.
+L, ~95-145k. Re-estimated 06/11/2026: start-sequence tests added from the brainstorm. Moved ahead of the refactor phases (08, 09) so they're covered by tests.

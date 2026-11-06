@@ -41,9 +41,9 @@ Phases are numbered in build order (renumbered 06/11/2026: old 04 → 10, 05 →
 - Never echo the GitHub token (kept in gitignored `.claude/settings.local.json`).
 
 ## Process (binding)
-branch → implement/test → draft PR → green CI → merge → sync main → CI-replica test run → update plan docs → stop and report.
+branch reset to `main` → implement/test → draft PR (subscribe to activity) → green CI → mark ready → squash-merge with the expected head SHA (unsubscribe) → sync main → CI-replica test run → update plan docs → stop and report.
 
-Each phase lives in `phases/NN-short-name.md` (scope, design, acceptance criteria, status). Update both this table and the phase file when work lands.
+Each phase lives in `phases/NN-short-name.md` and must be self-contained: Goal, Scope, Files touched, Tests, Status, and a "Built (DD/MM/YYYY)" section on completion. Phases 04-20 predate this standard; bring each file up to it when the phase is built. Update both this table and the phase file when work lands.
 
 ## Status table format
 - Columns: Phase (number + short title) | Status | Size / tokens. The size column is required on every row.

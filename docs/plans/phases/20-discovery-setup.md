@@ -1,4 +1,4 @@
-# Phase 19 — "New RoboVac found" setup prompt
+# Phase 20 — "New RoboVac found" setup prompt
 
 ## Scope
 From the 06/11/2026 brainstorm (feature: discovery-started setup). The brainstorm's "share discovery ports with localtuya" improvement is dropped: `tuyalocaldiscovery.py:27,30` already binds with `reuse_port=True`.
@@ -10,7 +10,7 @@ From the 06/11/2026 brainstorm (feature: discovery-started setup). The brainstor
 - `config_flow.async_step_integration_discovery`:
   - Set the unique id from the `gwId` and abort if it's already configured.
   - Show a confirm step, then continue into the existing credential step. The cloud login is still needed for the localKey.
-- If the account already has an entry, add the vacuum to it instead of creating a second entry. This merges the same way as Phase 18.
+- If the account already has an entry, add the vacuum to it instead of creating a second entry. This merges the same way as Phase 19.
 
 ## Acceptance criteria
 - [ ] With the Dobby entry deleted, a "Discovered: RoboVac" card appears within a minute and completes setup.

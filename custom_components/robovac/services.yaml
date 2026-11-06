@@ -1,0 +1,10 @@
+start_new_clean:
+  target:
+    entity:
+      integration: robovac
+      domain: vacuum
+auto_clean:
+  target:
+    entity:
+      integration: robovac
+      domain: vacuum

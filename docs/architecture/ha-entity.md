@@ -57,3 +57,13 @@ Verified on Dobby: `AggP` (STOP_GOHOME, method 15) stops a return to dock and le
 - **Naming:** `_attr_has_entity_name = True`, `_attr_name = None` (the main entity takes the device name, so `vacuum.dobby` is unchanged). unique_ids unchanged. This replaces the plan's "translated name": none is needed for the main entity.
 - **IP changes:** after the Phase 08 authenticated probe, `async_update_device_ip` calls `coordinator.async_set_host` (disable the old device, create a new one on the new host, warm up) then `async_update_entry`. `update_listener` compares entry data minus IPs with each coordinator's `item`: any other change reloads the entry, an IP-only change (including a manual IP in the options flow) just reconnects that vacuum.
 - `iot_class` in `manifest.json` stays `local_polling` (user declined `local_push`, 06/11/2026).
+
+## Control entities and services (Phase 11, 06/11/2026)
+
+- `entity.py`: `RoboVacBaseEntity(CoordinatorEntity)` for helper entities: `has_entity_name`, `translation_key`, unique_id `<vac_id>_<key>`, device identifiers, `available` from the coordinator. Names live in `strings.json` / `translations/en.json` (`entity.<domain>.<key>.name`).
+- `switch.py`: Boost IQ (`<id>_boost_iq`), only where the model has `BOOST_IQ` and a DPS code. State from `coordinator.data.passthrough[boost_iq]` (`None` = unknown). Writes an explicit `True`/`False`; the `boostIQ` `send_command` stays a toggle.
+- `button.py`: Stop return to dock (`<id>_stop_return`, only if the model file declares `ModeKey.STOP_RETURN`, i.e. `coordinator.declared_modes`) and Locate (`<id>_locate`, toggles DPS 160 like the vacuum entity).
+- `select.py`: Suction level (`<id>_suction_level`), options from `coordinator.fan_speed_map`; unknown current value shows as unknown.
+- All writes go through `coordinator.async_send_dps(*dps, supersede_start=False)`: one follow-up refresh per burst, and `supersede_start=True` (mode commands) calls `coordinator.cancel_start`, which the vacuum entity points at its `_cancel_start`.
+- Services (entity services on the vacuum platform, `services.yaml`): `robovac.start_new_clean` (stop-return, wait up to `NEW_CLEAN_SETTLE_TIMEOUT` for a non-paused state, then start-auto; runs as the cancellable `_start_task`) and `robovac.auto_clean` (start-auto directly, no escalation). `edge_clean` / `small_room_clean` were dropped: no L60 model declares those modes (user decision, 06/11/2026).
+

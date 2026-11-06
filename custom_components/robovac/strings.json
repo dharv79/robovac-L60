@@ -35,5 +35,35 @@
                 "description": "Autodiscovery will automatically update the IP address"
             }
         }
+    },
+    "entity": {
+        "switch": {
+            "boost_iq": {
+                "name": "Boost IQ"
+            }
+        },
+        "button": {
+            "stop_return": {
+                "name": "Stop return to dock"
+            },
+            "locate": {
+                "name": "Locate"
+            }
+        },
+        "select": {
+            "suction_level": {
+                "name": "Suction level"
+            }
+        }
+    },
+    "services": {
+        "start_new_clean": {
+            "name": "Start new clean",
+            "description": "Discards a paused or interrupted task and starts a fresh auto clean."
+        },
+        "auto_clean": {
+            "name": "Auto clean",
+            "description": "Starts an auto clean directly, without the resume and dock-cancel fallbacks."
+        }
     }
 }

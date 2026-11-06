@@ -30,6 +30,7 @@ from homeassistant.const import (
     CONF_NAME,
 )
 
+from custom_components.robovac.coordinator import RoboVacCoordinator
 from custom_components.robovac.vacuum import RoboVacEntity
 
 TEST_KEY = "0123456789abcdef"  # fake 16-char local key, never a real one  # gitleaks:allow
@@ -88,21 +89,25 @@ class FakeDevice:
 
     def push(self) -> None:
         self.entity.vacuum._dps["153"] = self.status
-        self.entity.update_entity_values()
+        self.entity.coordinator.update_from_device()
 
     @property
     def modes(self) -> list[str]:
         return [d["152"] for d in self.sent if "152" in d]
 
 
+def make_entity(hass, item: dict | None = None) -> RoboVacEntity:
+    return RoboVacEntity(RoboVacCoordinator(hass, item or make_item()))
+
+
 @pytest.fixture
-async def entity(monkeypatch):
+async def entity(hass, monkeypatch):
     """An L60 RoboVacEntity with its transport disabled and writes faked."""
     # START_CONFIRM_TIMEOUT is bound as a default argument, so patch that.
     monkeypatch.setattr(
         RoboVacEntity._async_wait_until_cleaning, "__defaults__", (0.3,)
     )
-    ent = RoboVacEntity(make_item())
+    ent = make_entity(hass)
     ent.async_write_ha_state = lambda: None
     refreshes = []
 
@@ -114,6 +119,7 @@ async def entity(monkeypatch):
     ent.refreshes = refreshes
     yield ent
     await ent.async_will_remove_from_hass()
+    await ent.coordinator.async_shutdown()
     await asyncio.sleep(0)
 
 
@@ -123,5 +129,5 @@ def attach(entity: RoboVacEntity, status: str, known: bool = True) -> FakeDevice
     entity.vacuum.async_set = fake.async_set
     if known:
         entity.vacuum._dps["153"] = status
-        entity.update_entity_values()
+        entity.coordinator.update_from_device()
     return fake

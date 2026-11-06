@@ -8,13 +8,13 @@ State updates arrive via two paths: (1) polling — `async_update` → `async_up
 
 **`async_send_command` hard-coded DPS trap:** Several named commands (`edgeClean`, `smallRoomClean`, `autoClean`, `autoReturn`, `doNotDisturb`, `boostIQ`, `roomClean`) bypass `_tuya_command_codes` entirely and use hard-coded DPS integer strings (`"5"`, `"152"`, `"135"`, etc.). These are L60-specific and will be wrong for other models.
 
-**`sensor.py`** — `RobovacBatterySensor` polls `hass.data[DOMAIN][CONF_VACS][id]._battery_level_cache` from the vacuum entity rather than communicating with the device directly.
+**`sensor.py`** — `RobovacBatterySensor` reads `coordinator.data.battery` (see the Phase 10 section below) rather than communicating with the device directly.
 
 **`config_flow.py`** — Two-step setup: initial credential flow calls Eufy/Tuya cloud APIs synchronously (via `async_add_executor_job`) to populate `CONF_VACS`. The password is used only for that and is not stored (entry `VERSION` 2; `async_migrate_entry` strips it from v1 entries). Options flow lets users set IP address and toggle autodiscovery per vacuum.
 
 ## Entity behaviour details
 
-- Battery level is **not** set on the vacuum entity — it lives in `_battery_level_cache` and is read by the separate sensor entity. This is intentional to avoid HA deprecation warnings.
+- Battery level is **not** set on the vacuum entity — it lives in `coordinator.data.battery` and is read by the separate sensor entity. This is intentional to avoid HA deprecation warnings.
 - `robovac_features` gates which extra state attributes appear in `extra_state_attributes`. A feature flag in `robovac_features` does not automatically mean the DPS code is mapped — both must be present. Raw-value attributes are table-driven via `PASSTHROUGH_ATTRIBUTES` in `vacuum.py`; add new ones there rather than as new properties.
 - Entity commands go through `_async_send_dps(*dps_dicts)`, which queues the writes and schedules one follow-up state refresh, skipped if one is already pending (exceptions from that refresh are caught and logged).
 - The integration uses `iot_class: local_polling` but also receives gratuitous push updates from the device via `async_gratuitous_update_state`.
@@ -48,3 +48,12 @@ Verified on Dobby: `AggP` (STOP_GOHOME, method 15) stops a return to dock and le
 - `RoboVacEntity` also inherits `RestoreEntity`. `async_added_to_hass` calls `super().async_added_to_hass()`, then `_async_restore_activity` seeds `_restored_activity` from the last state (any `VacuumActivity` value; `unavailable`/`unknown` are skipped) when `tuya_state` is still `None`.
 - `activity` returns the restored value only while `tuya_state` is `None`, and `extra_state_attributes` then adds `state_restored: true`. The first decoded status clears it.
 - Command logic uses `_live_activity()` (device-reported only): `_update_cleaning_event`, `_async_wait_until_cleaning`, and `_async_start_sequence`'s `tuya_state` checks. A restored state never short-circuits the start escalation; unknown still escalates.
+
+## Shared coordinator (Phase 10, 06/11/2026)
+
+- `coordinator.py`: `RoboVacCoordinator(DataUpdateCoordinator[RoboVacData])`, one per vacuum, stored in `entry.runtime_data` as `{vac_id: coordinator}` (replaces `hass.data[DOMAIN][CONF_VACS]`). It owns the `RoboVac` device, `command_codes`, mode/status maps, availability (`available`, `update_failures`, `fault`) and the warm-up task. State is parsed once per payload into the frozen `RoboVacData` (`status`, `error`, `mode`, `battery`, `fan_speed`, `consumables`, `passthrough`, raw `dps`).
+- **Push first:** `pushed_update_handler` → `update_from_device` → `async_set_updated_data`. A push also marks the vacuum available. `update_interval` is 5 min (`FALLBACK_UPDATE_INTERVAL`) and a watchdog (`async_track_time_interval`, `REFRESH_RATE`) forces a GET only if nothing has arrived for `REFRESH_RATE`. Failed GETs keep the last data; after `UPDATE_RETRIES` the vacuum is unavailable (logged once). `async_forced_refresh` (GET, errors propagate) is used after commands.
+- **Entities:** `RoboVacEntity` and `RobovacBatterySensor` are `CoordinatorEntity`s. `available` comes from `coordinator.available`; the sensor is always available and keeps its last reading. `_cleaning` (asyncio.Event for the start sequence) now lives on the coordinator and is set when the parsed activity is CLEANING. Restored activity stays on the entity (display only).
+- **Naming:** `_attr_has_entity_name = True`, `_attr_name = None` (the main entity takes the device name, so `vacuum.dobby` is unchanged). unique_ids unchanged. This replaces the plan's "translated name": none is needed for the main entity.
+- **IP changes:** after the Phase 08 authenticated probe, `async_update_device_ip` calls `coordinator.async_set_host` (disable the old device, create a new one on the new host, warm up) then `async_update_entry`. `update_listener` compares entry data minus IPs with each coordinator's `item`: any other change reloads the entry, an IP-only change (including a manual IP in the options flow) just reconnects that vacuum.
+- `iot_class` in `manifest.json` stays `local_polling` (user declined `local_push`, 06/11/2026).

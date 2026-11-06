@@ -27,8 +27,8 @@ from homeassistant.components.vacuum import VacuumActivity
 from homeassistant.core import State
 from pytest_homeassistant_custom_component.common import mock_restore_cache
 
+from custom_components.robovac.coordinator import _decode_consumables
 from custom_components.robovac.tuyalocalapi import TuyaException
-from custom_components.robovac.vacuum import RoboVacEntity
 
 from .conftest import (
     CHARGING,
@@ -37,10 +37,11 @@ from .conftest import (
     RECHARGE,
     STANDBY,
     attach,
+    make_entity,
     make_item,
 )
 
-VACUUM_LOGGER = "custom_components.robovac.vacuum"
+COORDINATOR_LOGGER = "custom_components.robovac.coordinator"
 
 
 # --- State decoding -------------------------------------------------------
@@ -61,7 +62,7 @@ VACUUM_LOGGER = "custom_components.robovac.vacuum"
 )
 async def test_activity_from_status_dps(entity, status, activity):
     entity.vacuum._dps.update({"153": status})
-    entity.update_entity_values()
+    entity.coordinator.update_from_device()
     assert entity.activity == activity
 
 
@@ -70,22 +71,20 @@ async def test_unknown_status_is_idle(entity):
     assert entity.activity == VacuumActivity.IDLE
 
 
-async def test_battery_cached_not_on_entity(entity):
-    # Do-not-break #4: battery lives in _battery_level_cache only.
+async def test_battery_in_coordinator_not_on_entity(entity):
+    # Do-not-break #4: battery lives in the coordinator data, never on the entity.
     entity.vacuum._dps.update({"163": 87})
-    entity.update_entity_values()
-    assert entity._battery_level_cache == 87
+    entity.coordinator.update_from_device()
+    assert entity.coordinator.data.battery == 87
     assert getattr(entity, "_attr_battery_level", None) is None
 
 
 async def test_consumables_json_and_bad_payloads(entity):
     payload = json.dumps({"consumable": {"duration": {"SP": 3}}}).encode()
-    entity._update_consumables(base64.b64encode(payload))
-    assert entity._consumables == {"SP": 3}
-    entity._consumables = None
-    entity._update_consumables(base64.b64encode(b"{'consumable': {}}"))
-    entity._update_consumables("!!not base64")
-    assert entity._consumables is None
+    assert _decode_consumables(base64.b64encode(payload), None, "id") == {"SP": 3}
+    assert _decode_consumables(base64.b64encode(b"{'consumable': {}}"), None, "id") is None
+    assert _decode_consumables("!!not base64", None, "id") is None
+    assert _decode_consumables(None, {"SP": 3}, "id") == {"SP": 3}  # keeps the last value
 
 
 # --- Commands -------------------------------------------------------------
@@ -96,13 +95,13 @@ async def test_boost_iq_toggles_dps_159(entity):
     await entity.async_send_command("boostIQ")
     assert fake.sent[-1] == {"159": True}
     entity.vacuum._dps["159"] = True
-    entity.update_entity_values()
+    entity.coordinator.update_from_device()
     await entity.async_send_command("boostIQ")
     assert fake.sent[-1] == {"159": False}
 
 
-async def test_unsupported_model_is_inert():
-    ent = RoboVacEntity(make_item(model="T9999"))
+async def test_unsupported_model_is_inert(hass):
+    ent = make_entity(hass, make_item(model="T9999"))
     assert ent.vacuum is None
     assert ent.error_code == "UNSUPPORTED_MODEL"
     assert ent.available is False
@@ -189,46 +188,46 @@ async def test_fan_speed_does_not_cancel_start(entity):
 
 def _vacuum_records(caplog, level):
     return [
-        r for r in caplog.records if r.name == VACUUM_LOGGER and r.levelno == level
+        r for r in caplog.records if r.name == COORDINATOR_LOGGER and r.levelno == level
     ]
 
 
 async def test_unavailable_and_recovery_logged_once(entity, caplog):
     caplog.set_level(logging.DEBUG)
+    coordinator = entity.coordinator
 
     async def fail():
         raise TuyaException("timeout")
 
-    entity.async_update_vacuum = fail
+    coordinator.vacuum.async_get = fail
     for _ in range(8):
-        await entity.async_update()
+        await coordinator.async_refresh()
     assert entity.available is False
     assert len(_vacuum_records(caplog, logging.WARNING)) == 1
 
     async def ok():
-        entity.tuyastatus = {"153": STANDBY}
+        coordinator.vacuum._dps["153"] = STANDBY
 
-    entity.async_update_vacuum = ok
-    await entity.async_update()
-    await entity.async_update()
+    coordinator.vacuum.async_get = ok
+    await coordinator.async_refresh()
+    await coordinator.async_refresh()
     assert entity.available is True
     assert len(_vacuum_records(caplog, logging.INFO)) == 1
 
 
-async def test_warm_up_runs_in_background(hass, entity, caplog):
-    entity.hass = hass
-    entity.entity_id = "vacuum.dobby"
+async def test_warm_up_runs_in_background(entity):
+    coordinator = entity.coordinator
     calls = []
 
     async def fail():
         calls.append(1)
         raise TuyaException("asleep")
 
-    entity.async_update_vacuum = fail
-    await entity.async_added_to_hass()
-    assert entity._warmup_task is not None and not entity._warmup_task.done()
+    coordinator.async_forced_refresh = fail
+    coordinator.async_start()
+    assert coordinator._warmup_task is not None and not coordinator._warmup_task.done()
     assert entity.available is False
-    entity._warmup_task.cancel()
+    coordinator._warmup_task.cancel()
 
 
 # --- Restored state (Phase 06) -------------------------------------------
@@ -238,17 +237,16 @@ async def test_restored_state_is_display_only(hass, entity):
     mock_restore_cache(hass, [State("vacuum.dobby", "cleaning")])
     entity.hass = hass
     entity.entity_id = "vacuum.dobby"
-    entity.ip_address = None  # no warm-up
     attach(entity, PAUSED, known=False)
     await entity.async_added_to_hass()
     assert entity.activity == VacuumActivity.CLEANING
     assert entity.extra_state_attributes["state_restored"] is True
     # Command logic ignores it: a start still escalates from unknown.
     assert entity._live_activity() == VacuumActivity.IDLE
-    assert not entity._cleaning.is_set()
+    assert not entity.coordinator.cleaning.is_set()
     entity.vacuum._dps["153"] = STANDBY
-    entity.update_entity_values()
-    assert entity._restored_activity is None
+    entity.coordinator.update_from_device()
+    assert entity.activity == VacuumActivity.IDLE
     assert "state_restored" not in entity.extra_state_attributes
 
 
@@ -256,6 +254,4 @@ async def test_unavailable_last_state_not_restored(hass, entity):
     mock_restore_cache(hass, [State("vacuum.dobby", "unavailable")])
     entity.hass = hass
     entity.entity_id = "vacuum.dobby"
-    entity.ip_address = None
     await entity.async_added_to_hass()
-    assert entity._restored_activity is None

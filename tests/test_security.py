@@ -237,7 +237,7 @@ async def test_ip_change_applied_after_probe(hass, vac_entry, reload):
     with _probe(True):
         await robovac.async_update_device_ip(hass, {"gwId": "dobby-id", "ip": "192.0.2.20"})
     assert vac_entry.data[CONF_VACS]["dobby-id"][CONF_IP_ADDRESS] == "192.0.2.20"
-    reload.assert_awaited_once_with(vac_entry.entry_id)
+    reload.assert_not_awaited()  # Phase 10: only that vacuum reconnects
 
 
 async def test_ip_changes_rate_limited(hass, vac_entry, reload):

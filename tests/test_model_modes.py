@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from custom_components.robovac.vacuum import RoboVacEntity
+from custom_components.robovac.coordinator import RoboVacCoordinator
 from custom_components.robovac.vacuums import ROBOVAC_MODELS
 from custom_components.robovac.vacuums.base import (
     DEFAULT_MODE_VALUES,
@@ -90,23 +90,23 @@ def test_labels_follow_raw_values():
     assert labels["AA=="] == "Standby"
 
 
-async def test_entity_uses_model_values(monkeypatch):
+async def test_coordinator_uses_model_values(hass, monkeypatch):
     model = ROBOVAC_MODELS["T2267"]
     monkeypatch.setattr(
         model, "mode_values", {**model.mode_values, ModeKey.PAUSE: "CUSTOM"}
     )
-    ent = RoboVacEntity(make_item())
-    assert ent._mode_values[ModeKey.PAUSE] == "CUSTOM"
-    assert ent._mode_labels["CUSTOM"] == "Pause"
+    ent = RoboVacCoordinator(hass, make_item())
+    assert ent.mode_values[ModeKey.PAUSE] == "CUSTOM"
+    assert ent.mode_labels["CUSTOM"] == "Pause"
 
 
-async def test_model_status_values_override(monkeypatch):
+async def test_model_status_values_override(hass, monkeypatch):
     monkeypatch.setattr(
         ROBOVAC_MODELS["T2267"], "status_values", {"ZZZ=": "STANDBY"}, raising=False
     )
-    ent = RoboVacEntity(make_item())
-    assert ent._status_values["ZZZ="] == "STANDBY"
-    assert ent._status_values["AA=="] == "STANDBY"  # shared default kept
+    ent = RoboVacCoordinator(hass, make_item())
+    assert ent.status_values["ZZZ="] == "STANDBY"
+    assert ent.status_values["AA=="] == "STANDBY"  # shared default kept
 
 
 def test_no_raw_l60_mode_strings_in_vacuum_py():

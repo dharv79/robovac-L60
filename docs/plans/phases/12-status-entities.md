@@ -1,10 +1,10 @@
-# Phase 11 — Status and connectivity entities
+# Phase 12 — Status and connectivity entities
 
 ## Scope
-From the 06/11/2026 brainstorm (features: status sensor, docked/charging binary sensors, connected and last-seen entities, device page detail). Built on Phase 09's coordinator.
+From the 06/11/2026 brainstorm (features: status sensor, docked/charging binary sensors, connected and last-seen entities, device page detail). Built on Phase 10's coordinator.
 
 ## Design
-- **Status `sensor`** (`device_class: enum`): the full STATUS_MAPPING text ("Recharge", "Cleaning paused", "Position"). The options list comes from the model's status values (Phase 08).
+- **Status `sensor`** (`device_class: enum`): the full STATUS_MAPPING text ("Recharge", "Cleaning paused", "Position"). The options list comes from the model's status values (Phase 09).
 - **New `binary_sensor.py` platform**:
   - `docked`: status in Recharge / Standby-at-dock / Charging-complete. Exact strings are taken from captures, not guessed.
   - `charging` (`device_class: battery_charging`).

@@ -1,7 +1,7 @@
-# Phase 10 — Control entities + robovac services (Phase 03 idea #1; was Phase 04)
+# Phase 11 — Control entities + robovac services (Phase 03 idea #1; was Phase 04)
 
 ## Scope
-Replace "`vacuum.send_command` with a magic string" for Boost IQ with a real `switch` entity, and register typed entity services for the remaining named commands. Extended 06/11/2026 with brainstorm features: a stop-return-to-dock button, a suction select and a `start_new_clean` service. Built on Phase 09's coordinator; entities read `coordinator.data` instead of `hass.data`.
+Replace "`vacuum.send_command` with a magic string" for Boost IQ with a real `switch` entity, and register typed entity services for the remaining named commands. Extended 06/11/2026 with brainstorm features: a stop-return-to-dock button, a suction select and a `start_new_clean` service. Built on Phase 10's coordinator; entities read `coordinator.data` instead of `hass.data`.
 
 ## Design
 - **New `switch.py` platform**, added to `PLATFORMS` in `__init__.py`. One switch per vacuum per supported toggle. For now that's Boost IQ only:
@@ -14,7 +14,7 @@ Replace "`vacuum.send_command` with a magic string" for Boost IQ with a real `sw
 - Entity services (`platform.async_register_entity_service` in `vacuum.py`) plus `services.yaml`: `robovac.edge_clean`, `robovac.small_room_clean`, `robovac.auto_clean`, routed to the existing `_async_set_mode` branches.
   - **Open decision:** the L60 model files don't declare `EDGE`/`SMALL_ROOM`, so these no-op on Dobby and can't be tested on the user's hardware. Confirm with the user whether to ship them or drop them before building.
 - **`button.py`**:
-  - "Stop return to dock" sends the model's `stop_return` mode value (Phase 08). Created only where the model defines it.
+  - "Stop return to dock" sends the model's `stop_return` mode value (Phase 09). Created only where the model defines it.
   - "Locate", for models with `LOCATE`.
 - **`select.py`**: suction level, with options from the model's fan speeds; it writes through `async_set_fan_speed`.
 - **`robovac.start_new_clean`** entity service: throws away a paused task and starts fresh.

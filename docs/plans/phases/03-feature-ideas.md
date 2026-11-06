@@ -4,7 +4,7 @@
 Brainstorm only — no code changes. Each idea is grounded in the current codebase (file/line where relevant), with a rough size estimate so the user can pick which ones become their own numbered phase (04, 05, ...). Ideas are roughly ordered by value for effort.
 
 ## Status
-Done, merged (1d54606, PR #5). Promoted (06/11/2026): #1 → Phase 10, #9 → Phase 12, #2 → Phase 17, #18 → Phase 07, and #5 is superseded by Phase 09. These were first numbered 04-07, then renumbered into build order when the second brainstorm's 40 items became Phases 04-20.
+Done, merged (1d54606, PR #5). Promoted (06/11/2026): #1 → Phase 11, #9 → Phase 13, #2 → Phase 18, #18 → Phase 07, and #5 is superseded by Phase 10. These were first numbered 04-07, then renumbered into build order when the second brainstorm's 40 items became Phases 04-20 (now 04-21: the security sweep was inserted at 08).
 Stale since Phase 02: #4 (timeouts landed), #6 (`EMPTY_MAPPING` removed). On the L60, #7 and #14 have no usable DPS codes (commented out / encrypted in the L60 model files).
 
 ## Ideas

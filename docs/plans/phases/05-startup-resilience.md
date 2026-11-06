@@ -10,7 +10,7 @@ From the 06/11/2026 brainstorm (improvements: non-blocking startup, safer consum
   - Exponential backoff already exists (`tuyalocalapi.py:410-421`, capped at 600 s). Add ±20% jitter.
   - Reset the backoff on a successful push as well as on a successful send.
 - **Log once**: log `warning` once when the entity goes unavailable and `info` once when it recovers (HA's `log-when-unavailable` quality rule), instead of per failure.
-- **Debug log noise**: log full message hex/payloads only when a module-level `VERBOSE` flag is on. Phase 12's capture option will set that flag. Otherwise log a one-line summary (command, sequence, DPS keys).
+- **Debug log noise**: log full message hex/payloads only when a module-level `VERBOSE` flag is on. Phase 13's capture option will set that flag. Otherwise log a one-line summary (command, sequence, DPS keys).
 
 ## Acceptance criteria
 - [ ] With Dobby powered off, HA startup isn't delayed by the integration, and the entity shows unavailable.

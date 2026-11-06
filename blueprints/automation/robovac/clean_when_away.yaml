@@ -1,0 +1,59 @@
+blueprint:
+  name: RoboVac - clean when everyone leaves, dock when someone returns
+  description: Starts a clean once every chosen person is away and sends the vacuum home when any of them comes back.
+  domain: automation
+  author: dharv79
+  source_url: https://github.com/dharv79/robovac-L60/blob/main/blueprints/automation/robovac/clean_when_away.yaml
+  input:
+    vacuum:
+      name: Vacuum
+      selector:
+        entity:
+          filter:
+            - integration: robovac
+              domain: vacuum
+    people:
+      name: People
+      selector:
+        entity:
+          filter:
+            - domain: person
+          multiple: true
+    away_for:
+      name: Wait before starting
+      description: Everyone must have been away this long.
+      default:
+        minutes: 10
+      selector:
+        duration: {}
+mode: restart
+variables:
+  people: !input people
+triggers:
+  - trigger: state
+    entity_id: !input people
+    to: not_home
+    for: !input away_for
+    id: away
+  - trigger: state
+    entity_id: !input people
+    to: home
+    id: home
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: away
+          - condition: template
+            value_template: "{{ people | map('states') | select('eq', 'not_home') | list | count == people | count }}"
+        sequence:
+          - action: vacuum.start
+            target:
+              entity_id: !input vacuum
+      - conditions:
+          - condition: trigger
+            id: home
+        sequence:
+          - action: vacuum.return_to_base
+            target:
+              entity_id: !input vacuum

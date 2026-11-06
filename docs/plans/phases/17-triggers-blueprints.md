@@ -20,7 +20,10 @@ From the 06/11/2026 brainstorm (features: device triggers, bundled blueprints). 
 - [ ] README has a Blueprints section.
 
 ## Status
-Planned, not built.
+In progress (draft PR).
 
 ## Size
 M, ~40-65k.
+
+## Built (06/11/2026)
+`device_trigger.py` (four triggers), three blueprints, README Blueprints section with import buttons. Tests in `tests/test_device_trigger.py` (325 total). Open on a real HA: each blueprint's import from its GitHub URL (works once this is on `main`) and a run of each; `clean_when_away` and `notify_on_error` are schema-validated only.

@@ -24,7 +24,7 @@ From the 06/11/2026 brainstorm (features: cleaning events, cleaning count and la
 - [ ] CI tests cover the transition logic with fake state sequences.
 
 ## Status
-In progress (draft PR).
+Done, merged (bc28750, PR #22).
 
 ## Size
 M, ~40-65k.

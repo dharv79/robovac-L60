@@ -1,0 +1,26 @@
+blueprint:
+  name: RoboVac - notify when stuck or in error
+  description: Runs an action (for example a phone notification) when the vacuum reports an error.
+  domain: automation
+  author: dharv79
+  source_url: https://github.com/dharv79/robovac-L60/blob/main/blueprints/automation/robovac/notify_on_error.yaml
+  input:
+    vacuum_device:
+      name: Vacuum
+      selector:
+        device:
+          filter:
+            - integration: robovac
+    notify_action:
+      name: Action to run
+      description: What to do on an error, e.g. a notify service call.
+      selector:
+        action: {}
+      default: []
+mode: single
+triggers:
+  - trigger: device
+    domain: robovac
+    type: error
+    device_id: !input vacuum_device
+actions: !input notify_action
